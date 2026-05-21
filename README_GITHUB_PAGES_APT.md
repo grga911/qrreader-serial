@@ -42,7 +42,7 @@ No extra secrets needed — `GITHUB_TOKEN` is enough (`contents: write`).
 Replace `OWNER` and `REPO` with your GitHub path (same as `github.com/OWNER/REPO`).
 
 ```bash
-echo "deb [trusted=yes] https://OWNER.github.io/REPO/apt ./" | \
+echo "deb [trusted=yes] https://grga911.github.io/qrreader-serial/apt ./" | \
   sudo tee /etc/apt/sources.list.d/qrreader.list
 
 sudo apt update
