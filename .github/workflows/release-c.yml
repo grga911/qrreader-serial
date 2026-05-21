@@ -64,23 +64,23 @@ jobs:
 
       - name: Build C++ binary
         run: |
-          cmake -S src -B build-linux -DCMAKE_BUILD_TYPE=Release -DQRREADER_STATIC_LIBSTDCPP=ON
+          cmake -S src -B build-linux -DCMAKE_BUILD_TYPE=Release
           cmake --build build-linux --config Release -j"$(nproc)"
           mkdir -p dist
           cp build-linux/qrreader_linux dist/qrreader
 
       - name: Verify packaging files
         run: |
-          test -f debian/control || (echo "debian/control missing" && exit 1)
-          test -f debian/rules
-          test -f debian/install
-          test -f debian/changelog
+          test -f debian_cpp/control || (echo "debian_cpp/control missing" && exit 1)
+          test -f debian_cpp/rules
+          test -f debian_cpp/install
+          test -f debian_cpp/changelog
 
       - name: Build .deb package
         env:
           GIT_TAG: ${{ steps.release.outputs.git_tag }}
         run: |
-          chmod +x scripts/build-deb.sh debian/rules
+          chmod +x scripts/build-deb-cpp.sh debian_cpp/rules
           ./scripts/build-deb.sh
 
       - name: Collect release files
