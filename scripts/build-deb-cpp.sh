@@ -13,7 +13,6 @@ if ! command -v cmake >/dev/null 2>&1; then
     exit 1
 fi
 
-# Required Debian packaging files
 missing=""
 for f in debian_cpp/control debian_cpp/rules debian_cpp/install debian_cpp/changelog; do
     if [ ! -f "$f" ]; then
@@ -26,7 +25,6 @@ if [ -n "$missing" ]; then
     exit 1
 fi
 
-# Build version
 if [ -n "${GIT_TAG:-}" ]; then
     VERSION="${GIT_TAG#v}"
 elif [ -n "${RELEASE_TAG:-}" ]; then
@@ -37,15 +35,19 @@ fi
 DEB_REV="${DEB_REV:-1}"
 DEB_VERSION="${VERSION}-${DEB_REV}"
 
-# Validate changelog syntax early
-if ! dpkg-parsechangelog >/dev/null 2>&1; then
+if ! dpkg-parsechangelog -l debian_cpp/changelog >/dev/null 2>&1; then
     echo "Error: debian_cpp/changelog is invalid"
     exit 1
 fi
 
-if ! dpkg-parsechangelog | grep -Fq "Version: ${DEB_VERSION}"; then
+if ! dpkg-parsechangelog -l debian_cpp/changelog | grep -Fq "Version: ${DEB_VERSION}"; then
     echo "Warning: debian_cpp/changelog version does not match ${DEB_VERSION}"
 fi
+
+echo "Preparing debian/ from debian_cpp/..."
+rm -rf debian
+cp -a debian_cpp debian
+chmod +x debian/rules
 
 echo "Building C++ binary..."
 rm -rf build-linux dist
@@ -62,9 +64,12 @@ if [ ! -f build-linux/qrreader_linux ]; then
 fi
 
 cp build-linux/qrreader_linux dist/qrreader
-chmod 755 dist/qrreader debian_cpp/rules
+chmod 755 dist/qrreader
 
-echo "Packing qrreader_${DEB_VERSION} ..."
+echo "Built binary:"
+file dist/qrreader
+
+echo "Packing qrreader-cpp_${DEB_VERSION} ..."
 dpkg-buildpackage -us -uc -b
 
 echo ""
