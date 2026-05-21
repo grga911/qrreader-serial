@@ -1,6 +1,5 @@
 #!/bin/sh
 # Pack pre-built PyInstaller binary (dist/qrreader) into a .deb.
-# Build the executable first: ./scripts/build-pyinstaller.sh
 set -e
 cd "$(dirname "$0")/.."
 
@@ -10,28 +9,40 @@ if ! command -v dpkg-buildpackage >/dev/null 2>&1; then
 fi
 
 if [ ! -f dist/qrreader ]; then
-    echo "Missing dist/qrreader"
-    echo "Run first: ./scripts/build-pyinstaller.sh"
+    echo "Missing dist/qrreader — run: ./scripts/build-pyinstaller.sh"
     exit 1
 fi
 
 chmod +x dist/qrreader
 
 VERSION="$(tr -d '\r\n' < VERSION)"
-echo "Packing qrreader_${VERSION}-1 (binary) ..."
+DEB_REV="${DEB_REV:-1}"
+DEB_VERSION="${VERSION}-${DEB_REV}"
 
-if ! grep -q "(${VERSION}-1)" debian/changelog; then
-    echo "Warning: debian/changelog may not match VERSION (${VERSION})"
+mkdir -p debian
+
+# Ensure debian/changelog exists and matches VERSION
+if [ ! -f debian/changelog ]; then
+    echo "Creating debian/changelog for ${DEB_VERSION}"
+    cat > debian/changelog <<EOF
+qrreader (${DEB_VERSION}) unstable; urgency=medium
+
+  * Release ${VERSION} (PyInstaller binary)
+
+ -- QR Reader <qrreader@localhost>  $(date -R)
+
+EOF
+elif ! grep -q "(${DEB_VERSION})" debian/changelog 2>/dev/null; then
+    echo "Warning: debian/changelog has no entry (${DEB_VERSION})"
+    echo "  Edit debian/changelog or delete it to auto-regenerate."
 fi
 
 chmod +x debian/rules 2>/dev/null || true
 
+echo "Packing qrreader_${DEB_VERSION} ..."
 dpkg-buildpackage -us -uc -b
 
 echo ""
-echo "Done:"
-echo "  ../qrreader_${VERSION}-1_amd64.deb"
-echo ""
-echo "Install:"
-echo "  sudo dpkg -i ../qrreader_${VERSION}-1_amd64.deb"
-echo "  systemctl --user enable --now qrreader.service"
+echo "Done. Look for:"
+echo "  ../qrreader_${DEB_VERSION}_amd64.deb"
+ls -la ../*.deb 2>/dev/null || true
