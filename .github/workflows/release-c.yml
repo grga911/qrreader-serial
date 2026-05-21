@@ -81,7 +81,7 @@ jobs:
           GIT_TAG: ${{ steps.release.outputs.git_tag }}
         run: |
           chmod +x scripts/build-deb-cpp.sh debian_cpp/rules
-          ./scripts/build-deb.sh
+          ./scripts/build-deb-cpp.sh
 
       - name: Collect release files
         run: |
