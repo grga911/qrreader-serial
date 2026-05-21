@@ -6,6 +6,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -27,9 +28,16 @@ jobs:
           chmod +x scripts/build-pyinstaller.sh
           ./scripts/build-pyinstaller.sh
 
+      - name: Verify debian/ packaging is in repo
+        run: |
+          test -f debian/control || (echo "debian/control missing — commit debian/ (not in .gitignore)" && exit 1)
+          test -f debian/rules
+          test -f debian/install
+          test -f debian/changelog
+
       - name: Build .deb package
         run: |
-          chmod +x scripts/build-deb.sh
+          chmod +x scripts/build-deb.sh debian/rules
           ./scripts/build-deb.sh
 
       - name: Collect release files

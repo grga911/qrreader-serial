@@ -13,36 +13,32 @@ if [ ! -f dist/qrreader ]; then
     exit 1
 fi
 
-chmod +x dist/qrreader
+# Required debian packaging files (must be in git — see .gitignore)
+missing=""
+for f in debian/control debian/rules debian/install debian/changelog debian/compat; do
+    if [ ! -f "$f" ]; then
+        missing="$missing $f"
+    fi
+done
+if [ -n "$missing" ]; then
+    echo "Missing debian packaging files:$missing"
+    echo "Ensure debian/ is committed (it must NOT be listed in .gitignore)."
+    exit 1
+fi
+
+chmod +x dist/qrreader debian/rules
 
 VERSION="$(tr -d '\r\n' < VERSION)"
 DEB_REV="${DEB_REV:-1}"
 DEB_VERSION="${VERSION}-${DEB_REV}"
 
-mkdir -p debian
-
-# Ensure debian/changelog exists and matches VERSION
-if [ ! -f debian/changelog ]; then
-    echo "Creating debian/changelog for ${DEB_VERSION}"
-    cat > debian/changelog <<EOF
-qrreader (${DEB_VERSION}) unstable; urgency=medium
-
-  * Release ${VERSION} (PyInstaller binary)
-
- -- QR Reader <qrreader@localhost>  $(date -R)
-
-EOF
-elif ! grep -q "(${DEB_VERSION})" debian/changelog 2>/dev/null; then
-    echo "Warning: debian/changelog has no entry (${DEB_VERSION})"
-    echo "  Edit debian/changelog or delete it to auto-regenerate."
+if ! grep -q "(${DEB_VERSION})" debian/changelog; then
+    echo "Warning: debian/changelog has no entry for (${DEB_VERSION})"
 fi
-
-chmod +x debian/rules 2>/dev/null || true
 
 echo "Packing qrreader_${DEB_VERSION} ..."
 dpkg-buildpackage -us -uc -b
 
 echo ""
-echo "Done. Look for:"
-echo "  ../qrreader_${DEB_VERSION}_amd64.deb"
-ls -la ../*.deb 2>/dev/null || true
+echo "Done:"
+ls -la ../*_${DEB_VERSION}_*.deb 2>/dev/null || ls -la ../*.deb 2>/dev/null || true
