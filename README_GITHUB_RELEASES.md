@@ -12,9 +12,12 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-3. GitHub Actions (`.github/workflows/release.yml`) builds inside a Docker container (default **`ubuntu:20.04`**) on an `ubuntu-22.04` runner and uploads:
-   - `qrreader_<version>-1_amd64.deb`
-   - `qrreader-<version>-linux-amd64` (standalone binary)
+3. GitHub Actions builds from the **git tag** (e.g. `v4.0.1`) and uploads:
+   - `qrreader-v4.0.1_amd64.deb`
+   - `qrreader-v4.0.1-linux-amd64-ubuntu-20.04` (standalone binary)
+   - GitHub Release title: **Release v4.0.1**
+
+`VERSION` and `debian/changelog` are synced from the tag in CI before the `.deb` is built.
 
 **Before first run:** ensure the repo has Actions enabled and `debian/` is committed (not in `.gitignore`).
 

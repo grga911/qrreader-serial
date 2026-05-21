@@ -34,6 +34,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve version from git tag
+        id: release
+        run: |
+          if echo "${{ github.ref }}" | grep -qE 'refs/tags/v'; then
+            GIT_TAG="${{ github.ref_name }}"
+          else
+            GIT_TAG="v$(tr -d '\r\n' < VERSION)"
+            echo "Not a tag build; using VERSION file → $GIT_TAG"
+          fi
+          VERSION="${GIT_TAG#v}"
+          echo "git_tag=$GIT_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "deb_version=${VERSION}-1" >> "$GITHUB_OUTPUT"
+
+      - name: Sync VERSION and debian/changelog from tag
+        run: |
+          chmod +x scripts/sync-version-from-tag.sh
+          GIT_TAG="${{ steps.release.outputs.git_tag }}" ./scripts/sync-version-from-tag.sh "${{ steps.release.outputs.git_tag }}"
+
       - name: Install build dependencies
         run: |
           apt-get update
@@ -59,23 +78,36 @@ jobs:
           test -f debian/changelog
 
       - name: Build .deb package
+        env:
+          GIT_TAG: ${{ steps.release.outputs.git_tag }}
         run: |
           chmod +x scripts/build-deb.sh debian/rules
           ./scripts/build-deb.sh
 
       - name: Collect release files
         run: |
-          VERSION="$(tr -d '\r\n' < VERSION)"
+          GIT_TAG="${{ steps.release.outputs.git_tag }}"
+          VERSION="${{ steps.release.outputs.version }}"
+          DEB_VERSION="${{ steps.release.outputs.deb_version }}"
           IMAGE="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_image || 'ubuntu:20.04' }}"
           IMAGE_TAG="$(echo "$IMAGE" | tr ':' '-')"
           mkdir -p release-assets
-          cp dist/qrreader "release-assets/qrreader-${VERSION}-linux-amd64-${IMAGE_TAG}"
-          cp ../*.deb release-assets/ 2>/dev/null || true
+          cp dist/qrreader "release-assets/qrreader-${GIT_TAG}-linux-amd64-${IMAGE_TAG}"
+          DEB_SRC="../qrreader_${DEB_VERSION}_amd64.deb"
+          DEB_DST="release-assets/qrreader-${GIT_TAG}_amd64.deb"
+          if [ -f "$DEB_SRC" ]; then
+            cp "$DEB_SRC" "$DEB_DST"
+          else
+            cp ../*.deb "$DEB_DST" 2>/dev/null || true
+          fi
           ls -la release-assets/
 
       - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.release.outputs.git_tag }}
+          name: Release ${{ steps.release.outputs.git_tag }}
           files: release-assets/*
           generate_release_notes: true
 

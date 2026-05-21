@@ -28,7 +28,13 @@ fi
 
 chmod +x dist/qrreader debian/rules
 
-VERSION="$(tr -d '\r\n' < VERSION)"
+if [ -n "${GIT_TAG:-}" ]; then
+    VERSION="${GIT_TAG#v}"
+elif [ -n "${RELEASE_TAG:-}" ]; then
+    VERSION="${RELEASE_TAG#v}"
+else
+    VERSION="$(tr -d '\r\n' < VERSION)"
+fi
 DEB_REV="${DEB_REV:-1}"
 DEB_VERSION="${VERSION}-${DEB_REV}"
 

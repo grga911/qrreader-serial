@@ -31,11 +31,16 @@ fi
 
 echo "==> Fetching release from ${REPO} (${TAG})"
 JSON="$(curl -fsSL "$API")"
-# Prefer ubuntu-20.04 build if present, else any amd64 .deb
-DEB_URL="$(echo "$JSON" | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url' | head -n1)"
-PREFERRED="$(echo "$JSON" | jq -r '.assets[] | select(.name | test("ubuntu-20.04.*_amd64\\.deb$")) | .browser_download_url' | head -n1)"
-if [ -n "$PREFERRED" ] && [ "$PREFERRED" != "null" ]; then
-    DEB_URL="$PREFERRED"
+# Tag-based name: qrreader-v4.0.1_amd64.deb (preferred), else legacy *_amd64.deb
+if [ "$TAG" != "latest" ]; then
+    case "$TAG" in v*) ;; *) TAG="v${TAG}" ;; esac
+    DEB_URL="$(echo "$JSON" | jq -r --arg t "$TAG" '.assets[] | select(.name == "qrreader-\($t)_amd64.deb") | .browser_download_url' | head -n1)"
+fi
+if [ -z "$DEB_URL" ] || [ "$DEB_URL" = "null" ]; then
+    DEB_URL="$(echo "$JSON" | jq -r '.assets[] | select(.name | test("^qrreader-v[0-9].*_amd64\\.deb$")) | .browser_download_url' | head -n1)"
+fi
+if [ -z "$DEB_URL" ] || [ "$DEB_URL" = "null" ]; then
+    DEB_URL="$(echo "$JSON" | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url' | head -n1)"
 fi
 
 if [ -z "$DEB_URL" ] || [ "$DEB_URL" = "null" ]; then
