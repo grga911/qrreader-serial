@@ -1,0 +1,15 @@
+[Unit]
+Description=QR Reader (serial barcode to clipboard paste)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/qrreader
+Restart=on-failure
+RestartSec=3
+# Required for clipboard and Ctrl+V on X11/Wayland (XWayland)
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=default.target
