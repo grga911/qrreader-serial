@@ -21,7 +21,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build_c_cpp:
     runs-on: ubuntu-22.04
     container:
       image: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_image || 'ubuntu:20.04' }}
@@ -114,3 +114,41 @@ jobs:
         with:
           name: release-assets
           path: release-assets/
+
+  publish-apt-pages-cpp:
+    needs: build_c_cpp
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets-cpp
+          path: release-assets-cpp
+
+      - name: Build C++ apt repository index
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-utils
+          mkdir -p apt-publish
+          cp release-assets-cpp/*.deb apt-publish/
+          ls -la apt-publish/
+          chmod +x scripts/setup-apt-repo.sh
+          ./scripts/setup-apt-repo.sh apt-publish
+
+      - name: Deploy C++ apt repo to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: apt-publish
+          publish_branch: gh-pages
+          destination_dir: apt/cpp
+          commit_message: 'apt: publish qrreader-cpp ${{ github.ref_name }}'
+
+      - name: Pages URL hint
+        run: |
+          echo "APT line:"
+          echo "  deb [trusted=yes] https://${{ github.event.repository.owner.login }}.github.io/${{ github.event.repository.name }}/apt/cpp ./"
