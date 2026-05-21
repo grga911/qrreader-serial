@@ -90,9 +90,9 @@ jobs:
           IMAGE="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_image || 'ubuntu:20.04' }}"
           IMAGE_TAG="$(echo "$IMAGE" | tr ':' '-')"
           mkdir -p release-assets
-          cp dist/qrreader "release-assets/qrreader-${GIT_TAG}-linux-amd64-${IMAGE_TAG}"
-          DEB_SRC="../qrreader_${DEB_VERSION}_amd64.deb"
-          DEB_DST="release-assets/qrreader-${GIT_TAG}_amd64.deb"
+          cp dist/qrreader "release-assets/qrreader-cpp-${GIT_TAG}-linux-amd64-${IMAGE_TAG}"
+          DEB_SRC="../qrreader-cpp_${DEB_VERSION}_amd64.deb"
+          DEB_DST="release-assets/qrreader-cpp-${GIT_TAG}_amd64.deb"
           if [ -f "$DEB_SRC" ]; then
             cp "$DEB_SRC" "$DEB_DST"
           else
@@ -106,7 +106,7 @@ jobs:
         with:
           tag_name: ${{ steps.release.outputs.git_tag }}
           name: Release ${{ steps.release.outputs.git_tag }}
-          files: release-assets/*
+          files: release-assets/*.deb
           generate_release_notes: true
 
       - name: Upload build artifacts

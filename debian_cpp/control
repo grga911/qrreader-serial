@@ -1,4 +1,4 @@
-Source: qrreader
+Source: qrreader-cpp
 Section: utils
 Priority: optional
 Maintainer: QR Reader Maintainer <qrreader@localhost>

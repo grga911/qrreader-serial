@@ -108,7 +108,7 @@ jobs:
         with:
           tag_name: ${{ steps.release.outputs.git_tag }}
           name: Release ${{ steps.release.outputs.git_tag }}
-          files: release-assets/*
+          files: release-assets/*.deb
           generate_release_notes: true
 
       - name: Upload build artifacts
