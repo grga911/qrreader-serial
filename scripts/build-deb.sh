@@ -15,7 +15,7 @@ fi
 
 # Required debian packaging files (must be in git — see .gitignore)
 missing=""
-for f in debian/control debian/rules debian/install debian/changelog debian/compat; do
+for f in debian/control debian/rules debian/install debian/changelog; do
     if [ ! -f "$f" ]; then
         missing="$missing $f"
     fi
