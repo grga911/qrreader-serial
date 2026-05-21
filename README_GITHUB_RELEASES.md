@@ -12,13 +12,25 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-3. GitHub Actions (`.github/workflows/release.yml`) builds on `ubuntu-22.04` and uploads:
+3. GitHub Actions (`.github/workflows/release.yml`) builds inside a Docker container (default **`ubuntu:20.04`**) on an `ubuntu-22.04` runner and uploads:
    - `qrreader_<version>-1_amd64.deb`
    - `qrreader-<version>-linux-amd64` (standalone binary)
 
-**Before first run:** edit the workflow if your tag format differs; ensure the repo has Actions enabled.
+**Before first run:** ensure the repo has Actions enabled and `debian/` is committed (not in `.gitignore`).
 
 Replace `owner/repo` below with your real GitHub path (e.g. `mycompany/QR-READER-U22`).
+
+### Ubuntu 20.04 / older Debian
+
+| Question | Answer |
+|----------|--------|
+| Can the workflow use `runs-on: ubuntu-20.04`? | **No** — GitHub retired that hosted runner (April 2025). |
+| Can the **built binary** run on Ubuntu 20.04? | **Yes** — default build uses Docker **`ubuntu:20.04`** (older glibc). |
+| Debian 10 / older? | Run workflow manually → choose **`debian:10`** or **`debian:11`**. |
+
+Manual run: **Actions → Release → Run workflow** → pick `build_image` (`ubuntu:20.04`, `ubuntu:22.04`, `debian:11`, `debian:10`).
+
+**Rule:** Build on the **oldest** OS you need to support; a binary built on 22.04 often fails on 20.04 with `GLIBC_2.34 not found`.
 
 ---
 

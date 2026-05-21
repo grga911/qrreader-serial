@@ -31,7 +31,12 @@ fi
 
 echo "==> Fetching release from ${REPO} (${TAG})"
 JSON="$(curl -fsSL "$API")"
+# Prefer ubuntu-20.04 build if present, else any amd64 .deb
 DEB_URL="$(echo "$JSON" | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url' | head -n1)"
+PREFERRED="$(echo "$JSON" | jq -r '.assets[] | select(.name | test("ubuntu-20.04.*_amd64\\.deb$")) | .browser_download_url' | head -n1)"
+if [ -n "$PREFERRED" ] && [ "$PREFERRED" != "null" ]; then
+    DEB_URL="$PREFERRED"
+fi
 
 if [ -z "$DEB_URL" ] || [ "$DEB_URL" = "null" ]; then
     echo "No *_amd64.deb asset found on this release."
