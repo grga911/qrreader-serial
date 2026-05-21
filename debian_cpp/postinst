@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+case "$1" in
+    configure)
+        echo "Installed /usr/bin/qrreader"
+        echo "Per user: systemctl --user enable --now qrreader.service"
+        ;;
+esac
+#DEBHELPER#
+exit 0

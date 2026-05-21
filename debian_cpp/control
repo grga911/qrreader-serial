@@ -1,0 +1,13 @@
+Source: qrreader
+Section: utils
+Priority: optional
+Maintainer: QR Reader Maintainer <qrreader@localhost>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: qrreader-cpp
+Architecture: amd64
+Depends: ${misc:Depends}, xclip, xdotool
+Description: QR Reader Linux C++ build
+ C++ implementation of qrreader for Linux.
