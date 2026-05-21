@@ -1,5 +1,0 @@
-dist/qrreader usr/bin/qrreader
-VERSION usr/share/qrreader/VERSION
-qrreader.service usr/lib/systemd/user/qrreader.service
-debian/default/port etc/qrreader/port
-debian/default/update.url etc/qrreader/update.url.example

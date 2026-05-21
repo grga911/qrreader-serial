@@ -1,4 +1,0 @@
-# Copy to /etc/qrreader/update.url (one line, no #).
-# GitHub raw VERSION (for qrreader --check-update):
-# https://raw.githubusercontent.com/YOUR_ORG/YOUR_REPO/main/VERSION
-# Or run: GITHUB_REPO=YOUR_ORG/YOUR_REPO scripts/configure-update-url.sh
