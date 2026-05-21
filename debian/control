@@ -1,0 +1,15 @@
+Source: qrreader
+Section: utils
+Priority: optional
+Maintainer: QR Reader Maintainer <qrreader@localhost>
+Build-Depends: debhelper-compat (= 13), file
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: qrreader
+Architecture: amd64
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: QR/barcode serial reader (PyInstaller binary)
+ Standalone qrreader: serial scanner to clipboard paste.
+ Configure port in /etc/qrreader/port.
+ Enable: systemctl --user enable --now qrreader.service

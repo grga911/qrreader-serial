@@ -12,7 +12,7 @@ build-macos/
 bin/
 include/
 lib/
-debian/
+# Built packages (debian/ source must be committed — not ignored)
 *.deb
 *.rpm
 *.msi
