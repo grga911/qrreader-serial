@@ -1,0 +1,6 @@
+C:/Users/nemanja.grgic/Documents/PROJEKTI/QR-READER-U22/build-windows/CMakeFiles/qrreader_win_common.dir
+C:/Users/nemanja.grgic/Documents/PROJEKTI/QR-READER-U22/build-windows/CMakeFiles/qrreader_tray.dir
+C:/Users/nemanja.grgic/Documents/PROJEKTI/QR-READER-U22/build-windows/CMakeFiles/qrreader_service.dir
+C:/Users/nemanja.grgic/Documents/PROJEKTI/QR-READER-U22/build-windows/CMakeFiles/qrreader_windows.dir
+C:/Users/nemanja.grgic/Documents/PROJEKTI/QR-READER-U22/build-windows/CMakeFiles/ALL_BUILD.dir
+C:/Users/nemanja.grgic/Documents/PROJEKTI/QR-READER-U22/build-windows/CMakeFiles/ZERO_CHECK.dir

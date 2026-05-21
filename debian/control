@@ -1,0 +1,19 @@
+Source: qrreader
+Section: utils
+Priority: optional
+Maintainer: QR Reader Maintainer <qrreader@localhost>
+Build-Depends: debhelper-compat (= 13), file
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/example/qr-reader-u22
+
+Package: qrreader
+Architecture: amd64
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Recommends: polkitd
+Description: QR/barcode serial reader (PyInstaller binary)
+ Standalone qrreader executable: reads serial scanner data, transliterates
+ Serbian Cyrillic to Latin, pastes into the active window.
+ .
+ Configure port in /etc/qrreader/port. Enable per-user service:
+ systemctl --user enable --now qrreader.service

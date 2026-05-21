@@ -1,0 +1,7 @@
+.venv-build/
+venv/
+dist/
+build/
+__pycache__/
+*.pyc
+apt-repo/

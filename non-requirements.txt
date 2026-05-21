@@ -1,0 +1,19 @@
+# Transitive packages not needed for qrreader (serial + clipboard + hotkey only).
+# Removed after "pip install -r requirements.txt" to shrink venv before PyInstaller.
+# One package name per line; lines starting with # are ignored.
+
+Pillow
+pyscreeze
+pymsgbox
+pytweening
+mouseinfo
+pygetwindow
+opencv-python
+opencv-python-headless
+numpy
+pandas
+matplotlib
+scipy
+setuptools-scm
+pipenv
+virtualenv
