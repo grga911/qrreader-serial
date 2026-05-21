@@ -140,17 +140,18 @@ jobs:
           chmod +x scripts/setup-apt-repo.sh
           ./scripts/setup-apt-repo.sh apt-publish
 
-      - name: Deploy apt repo to GitHub Pages
+      - name: Deploy Python apt repo to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: apt-publish
           publish_branch: gh-pages
-          destination_dir: apt
-          commit_message: 'apt: publish qrreader ${{ github.ref_name }}'
+          destination_dir: apt/python
+          keep_files: true
+          commit_message: 'apt: publish qrreader-python ${{ github.ref_name }}'
 
       - name: Pages URL hint
         run: |
           echo "Enable Pages: Settings → Pages → Branch gh-pages → folder / (root)"
           echo "APT line:"
-          echo "  deb [trusted=yes] https://${{ github.event.repository.owner.login }}.github.io/${{ github.event.repository.name }}/apt ./"
+          echo "  deb [trusted=yes] https://${{ github.event.repository.owner.login }}.github.io/${{ github.event.repository.name }}/apt/python ./"

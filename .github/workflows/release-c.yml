@@ -131,6 +131,7 @@ jobs:
           publish_dir: apt-publish
           publish_branch: gh-pages
           destination_dir: apt/cpp
+          keep_files: true
           commit_message: 'apt: publish qrreader-cpp ${{ github.ref_name }}'
 
       - name: Pages URL hint
