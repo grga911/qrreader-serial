@@ -1,8 +1,13 @@
 #!/usr/bin/make -f
 export DH_VERBOSE = 1
 
+# Pre-built PyInstaller binary only — do not run cmake (CMakeLists.txt is for C++ builds).
 %:
-	dh $@
+	dh $@ --buildsystem=none
+
+override_dh_auto_configure:
+
+override_dh_autoreconf:
 
 override_dh_auto_build:
 	@test -f dist/qrreader || (echo "Missing dist/qrreader — run: ./scripts/build-pyinstaller.sh" && exit 1)
