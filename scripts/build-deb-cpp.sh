@@ -57,6 +57,8 @@ cmake -S src -B build-linux \
     -DCMAKE_BUILD_TYPE=Release \
 
 cmake --build build-linux --config Release -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+strip build-linux/qrreader_linux -o build-linux/qrreader_linux.stripped
+mv build-linux/qrreader_linux.stripped build-linux/qrreader_linux
 
 if [ ! -f build-linux/qrreader_linux ]; then
     echo "Error: build output missing: build-linux/qrreader_linux"
