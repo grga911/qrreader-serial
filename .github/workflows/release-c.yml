@@ -21,134 +21,110 @@ permissions:
   contents: write
 
 jobs:
-  build_c_cpp:
-    runs-on: ubuntu-22.04
-    container:
-      image: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_image || 'ubuntu:20.04' }}
+build-cpp:
+  runs-on: ubuntu-22.04
+  container:
+    image: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_image || 'ubuntu:20.04' }}
+  permissions:
+    contents: write
 
-    steps:
-      - uses: actions/checkout@v4
+  steps:
+    - uses: actions/checkout@v4
 
-      - name: Resolve version from git tag
-        id: release
-        run: |
-          if echo "${{ github.ref }}" | grep -qE 'refs/tags/v'; then
-            GIT_TAG="${{ github.ref_name }}"
-          else
-            GIT_TAG="v$(tr -d '\r\n' < VERSION)"
-            echo "Not a tag build; using VERSION file → $GIT_TAG"
-          fi
-          VERSION="${GIT_TAG#v}"
-          echo "git_tag=$GIT_TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "deb_version=${VERSION}-1" >> "$GITHUB_OUTPUT"
+    - name: Resolve version from git tag
+      id: release
+      run: |
+        if echo "${{ github.ref }}" | grep -qE 'refs/tags/v'; then
+          GIT_TAG="${{ github.ref_name }}"
+        else
+          GIT_TAG="v$(tr -d '\r\n' < VERSION)"
+          echo "Not a tag build; using VERSION file -> $GIT_TAG"
+        fi
+        VERSION="${GIT_TAG#v}"
+        echo "git_tag=$GIT_TAG" >> "$GITHUB_OUTPUT"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "deb_version=${VERSION}-1" >> "$GITHUB_OUTPUT"
 
-      - name: Sync VERSION and debian/changelog from tag
-        run: |
-          chmod +x scripts/sync-version-from-tag.sh
-          ./scripts/sync-version-from-tag.sh "${{ steps.release.outputs.git_tag }}"
+    - name: Install build dependencies
+      run: |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          build-essential cmake \
+          debhelper debhelper-compat devscripts dpkg-dev \
+          file binutils ca-certificates git apt-utils
 
-      - name: Install build dependencies
-        run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            build-essential cmake \
-            debhelper debhelper-compat devscripts file binutils ca-certificates git
+    - name: Show build environment
+      run: |
+        cat /etc/os-release
+        g++ --version
+        cmake --version
+        ldd --version | head -1
 
-      - name: Show build environment
-        run: |
-          cat /etc/os-release
-          g++ --version
-          cmake --version
-          ldd --version | head -1
+    - name: Build C++ .deb
+      env:
+        GIT_TAG: ${{ steps.release.outputs.git_tag }}
+      run: |
+        chmod +x scripts/build-deb-cpp.sh
+        sh ./scripts/build-deb-cpp.sh
 
-      - name: Build C++ binary
-        run: |
-          cmake -S src -B build-linux -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-linux --config Release -j"$(nproc)"
-          mkdir -p dist
-          cp build-linux/qrreader_linux dist/qrreader
+    - name: Collect C++ release files
+      run: |
+        GIT_TAG="${{ steps.release.outputs.git_tag }}"
+        mkdir -p release-assets-cpp
+        find .. -maxdepth 1 -name "*.deb" -type f -exec cp -v {} release-assets-cpp/ \;
+        cp dist/qrreader "release-assets-cpp/qrreader-cpp-${GIT_TAG}-linux-amd64" || true
+        ls -la release-assets-cpp/
 
-      - name: Verify packaging files
-        run: |
-          test -f debian_cpp/control || (echo "debian_cpp/control missing" && exit 1)
-          test -f debian_cpp/rules
-          test -f debian_cpp/install
-          test -f debian_cpp/changelog
+    - name: Upload C++ build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-assets-cpp
+        path: release-assets-cpp/
 
-      - name: Build .deb package
-        env:
-          GIT_TAG: ${{ steps.release.outputs.git_tag }}
-        run: |
-          chmod +x scripts/build-deb-cpp.sh debian_cpp/rules
-          ./scripts/build-deb-cpp.sh
+    - name: Upload C++ to GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.release.outputs.git_tag }}
+        name: Release ${{ steps.release.outputs.git_tag }}
+        files: |
+          release-assets-cpp/*
+        generate_release_notes: true
 
-      - name: Collect release files
-        run: |
-          GIT_TAG="${{ steps.release.outputs.git_tag }}"
-          DEB_VERSION="${{ steps.release.outputs.deb_version }}"
-          IMAGE="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_image || 'ubuntu:20.04' }}"
-          IMAGE_TAG="$(echo "$IMAGE" | tr ':' '-')"
-          mkdir -p release-assets
-          cp dist/qrreader "release-assets/qrreader-cpp-${GIT_TAG}-linux-amd64-${IMAGE_TAG}"
-          DEB_SRC="../qrreader-cpp_${DEB_VERSION}_amd64.deb"
-          DEB_DST="release-assets/qrreader-cpp-${GIT_TAG}_amd64.deb"
-          if [ -f "$DEB_SRC" ]; then
-            cp "$DEB_SRC" "$DEB_DST"
-          else
-            cp ../*.deb "$DEB_DST" 2>/dev/null || true
-          fi
-          ls -la release-assets/
+publish-apt-pages-cpp:
+  needs: build-cpp
+  runs-on: ubuntu-22.04
+  permissions:
+    contents: write
 
-      - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release.outputs.git_tag }}
-          name: Release ${{ steps.release.outputs.git_tag }}
-          files: release-assets/*.deb
-          generate_release_notes: true
+  steps:
+    - uses: actions/checkout@v4
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-assets
-          path: release-assets/
+    - uses: actions/download-artifact@v4
+      with:
+        name: release-assets-cpp
+        path: release-assets-cpp
 
-  publish-apt-pages-cpp:
-    needs: build_c_cpp
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
+    - name: Build C++ apt repository index
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y apt-utils
+        mkdir -p apt-publish
+        cp release-assets-cpp/*.deb apt-publish/
+        ls -la apt-publish/
+        chmod +x scripts/setup-apt-repo.sh
+        ./scripts/setup-apt-repo.sh apt-publish
 
-    steps:
-      - uses: actions/checkout@v4
+    - name: Deploy C++ apt repo to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: apt-publish
+        publish_branch: gh-pages
+        destination_dir: apt/cpp
+        commit_message: 'apt: publish qrreader-cpp ${{ github.ref_name }}'
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-assets-cpp
-          path: release-assets-cpp
-
-      - name: Build C++ apt repository index
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apt-utils
-          mkdir -p apt-publish
-          cp release-assets-cpp/*.deb apt-publish/
-          ls -la apt-publish/
-          chmod +x scripts/setup-apt-repo.sh
-          ./scripts/setup-apt-repo.sh apt-publish
-
-      - name: Deploy C++ apt repo to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: apt-publish
-          publish_branch: gh-pages
-          destination_dir: apt/cpp
-          commit_message: 'apt: publish qrreader-cpp ${{ github.ref_name }}'
-
-      - name: Pages URL hint
-        run: |
-          echo "APT line:"
-          echo "  deb [trusted=yes] https://${{ github.event.repository.owner.login }}.github.io/${{ github.event.repository.name }}/apt/cpp ./"
+    - name: Pages URL hint
+      run: |
+        echo "APT line:"
+        echo "  deb [trusted=yes] https://${{ github.event.repository.owner.login }}.github.io/${{ github.event.repository.name }}/apt/cpp ./"
