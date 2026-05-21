@@ -4,14 +4,14 @@ Version: 4.1.1-1
 Priority: optional
 Section: utils
 Maintainer: QR Reader Maintainer <qrreader@localhost>
-Installed-Size: 5656
+Installed-Size: 5655
 Depends: libc6 (>= 2.14), zlib1g (>= 1:1.1.4)
 Filename: ./qrreader-v4.1.1_amd64.deb
-Size: 5670712
-MD5sum: 54acf10d0d03e015baed3eb508484baa
-SHA1: 2f9dd7412d7ca9a99c133e88830b7319bdab455c
-SHA256: 68a45e5f7b55756a1bdda7e459698278e7e083021ff8035743009f91d210a50e
-SHA512: f6f31b70d6524acac804eedb1e602577026a4f4d74afc3fa03e05c3896ad3399348a88e3a59e0501b70758e20c99f8e1d34b5a8fe26c6de0dd2d49354f86cbec
+Size: 5670632
+MD5sum: 2f0e75dfddeb8b473e48015c2c43d23f
+SHA1: bc695566971b47c76b7a19120f125fe4dafd54ba
+SHA256: 1cac5d1bce754c5e7789c541a0a6fdb547695add96991ebdba613f2a9ece0ea4
+SHA512: f4ecb5937cdec0eaef4a2688a38f14456c037a7e92cbadca1d91071499c607f0db6d79b1956d13f70948e6bfd5952cb29b89822e393464559b0c5869b8a90406
 Description: QR/barcode serial reader (PyInstaller binary)
  Standalone qrreader: serial scanner to clipboard paste.
  Configure port in /etc/qrreader/port.
