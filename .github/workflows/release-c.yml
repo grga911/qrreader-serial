@@ -45,6 +45,11 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "deb_version=${VERSION}-1" >> "$GITHUB_OUTPUT"
 
+      - name: Sync VERSION and debian/changelog from tag
+        run: |
+          chmod +x scripts/sync-version-from-tag.sh
+          GIT_TAG="${{ steps.release.outputs.git_tag }}" ./scripts/sync-version-from-tag.sh "${{ steps.release.outputs.git_tag }}"
+
       - name: Install build dependencies
         run: |
           apt-get update
@@ -70,6 +75,10 @@ jobs:
       - name: Collect C++ release files
         run: |
           GIT_TAG="${{ steps.release.outputs.git_tag }}"
+          VERSION="${{ steps.release.outputs.version }}"
+          DEB_VERSION="${{ steps.release.outputs.deb_version }}"
+          IMAGE="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_image || 'ubuntu:20.04' }}"
+          IMAGE_TAG="$(echo "$IMAGE" | tr ':' '-')"
           mkdir -p release-assets-cpp
           find .. -maxdepth 1 -name "*.deb" -type f -exec cp -v {} release-assets-cpp/ \;
           cp dist/qrreader "release-assets-cpp/qrreader-cpp-${GIT_TAG}-linux-amd64" || true
