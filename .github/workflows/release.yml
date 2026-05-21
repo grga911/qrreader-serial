@@ -67,7 +67,7 @@ jobs:
         run: |
           VERSION="$(tr -d '\r\n' < VERSION)"
           IMAGE="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_image || 'ubuntu:20.04' }}"
-          IMAGE_TAG="${IMAGE//:/-}"
+          IMAGE_TAG="$(echo "$IMAGE" | tr ':' '-')"
           mkdir -p release-assets
           cp dist/qrreader "release-assets/qrreader-${VERSION}-linux-amd64-${IMAGE_TAG}"
           cp ../*.deb release-assets/ 2>/dev/null || true
