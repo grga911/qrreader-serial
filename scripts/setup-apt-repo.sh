@@ -1,28 +1,38 @@
 #!/bin/sh
-# Create a simple local apt repository from built .deb files (for LAN updates).
+# Build apt repository metadata (Packages, Release) from .deb files in a directory.
+#
+# Usage:
+#   ./scripts/setup-apt-repo.sh ./apt-repo
+#   ./scripts/setup-apt-repo.sh ./apt-repo ../*.deb
 set -e
 
 REPO_DIR="${1:-./apt-repo}"
-DEB_GLOB="${2:-../*.deb}"
+shift || true
+
+if ! command -v apt-ftparchive >/dev/null 2>&1; then
+    echo "Install: sudo apt install apt-utils"
+    exit 1
+fi
 
 mkdir -p "$REPO_DIR"
-cp -f $DEB_GLOB "$REPO_DIR/" 2>/dev/null || {
-    echo "No .deb files found. Run scripts/build-deb.sh first."
+
+if [ "$#" -gt 0 ]; then
+    cp -f "$@" "$REPO_DIR/"
+elif [ -n "${DEB_GLOB:-}" ]; then
+    # shellcheck disable=SC2086
+    cp -f $DEB_GLOB "$REPO_DIR/" 2>/dev/null || true
+fi
+
+if ! ls "$REPO_DIR"/*.deb >/dev/null 2>&1; then
+    echo "No .deb files in $REPO_DIR"
+    echo "Usage: $0 <repo-dir> [path/to/*.deb ...]"
     exit 1
-}
+fi
 
 cd "$REPO_DIR"
 apt-ftparchive packages . > Packages
 gzip -9c Packages > Packages.gz
 apt-ftparchive release . > Release
 
-echo ""
-echo "Repository ready: $(pwd)"
-echo ""
-echo "On client machines, add (replace HOST and path):"
-echo '  echo "deb [trusted=yes] file:/path/to/apt-repo ./" | sudo tee /etc/apt/sources.list.d/qrreader.list'
-echo "Or HTTP:"
-echo '  echo "deb [trusted=yes] http://HOST/qrreader ./" | sudo tee /etc/apt/sources.list.d/qrreader.list'
-echo "  sudo apt update"
-echo "  sudo apt install qrreader"
-echo "  sudo apt upgrade qrreader   # future updates"
+echo "APT repo ready: $(pwd)"
+ls -la

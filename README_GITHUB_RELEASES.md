@@ -100,14 +100,16 @@ GitHub Releases are **not** a native apt repository. Options:
 | **GitHub Pages apt repo** | Yes | Medium (generate `Packages` / `Release`, host on `gh-pages`) |
 | **Packagecloud / Aptly / Nexus** | Yes | Higher |
 
-For most teams: **GitHub Release + `install-from-github-release.sh`** is enough.  
-For real `apt upgrade`, host a small apt repo (GitHub Pages or internal HTTP) and point clients at:
+For most teams: **GitHub Release + `install-from-github-release.sh`** is enough.
 
-```text
-deb [trusted=yes] https://your.pages.url ./ 
+For real **`apt update && apt upgrade`**, use **GitHub Pages** (automatic on each release):
+
+→ See **`README_GITHUB_PAGES_APT.md`**
+
+```bash
+echo "deb [trusted=yes] https://OWNER.github.io/REPO/apt ./" | sudo tee /etc/apt/sources.list.d/qrreader.list
+sudo apt update && sudo apt install qrreader
 ```
-
-Use `scripts/setup-apt-repo.sh` locally to build that structure, then upload the `apt-repo/` folder to GitHub Pages or a server.
 
 ---
 
