@@ -1,20 +1,21 @@
 #!/usr/bin/make -f
 export DH_VERBOSE = 1
 
-# Pre-built PyInstaller binary only — do not run cmake (CMakeLists.txt is for C++ builds).
 %:
 	dh $@ --buildsystem=none
 
 override_dh_auto_configure:
-
-override_dh_autoreconf:
+	cmake -S src -B build-linux -DCMAKE_BUILD_TYPE=Release
 
 override_dh_auto_build:
-	@test -f dist/qrreader || (echo "Missing dist/qrreader — run: ./scripts/build-pyinstaller.sh" && exit 1)
-	@file dist/qrreader | grep -qE 'ELF .+ executable' || (echo "dist/qrreader is not a Linux ELF binary" && exit 1)
+	cmake --build build-linux --config Release -j$$(nproc)
+	mkdir -p dist
+	cp build-linux/qrreader_linux dist/qrreader
 	chmod 755 dist/qrreader
 
 override_dh_auto_test:
+
+override_dh_autoreconf:
 
 override_dh_shlibdeps:
 	dh_shlibdeps -- --ignore-missing-info
