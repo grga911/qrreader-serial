@@ -12,6 +12,10 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Version to build (e.g. 4.0.1 or v4.0.1). Leave empty to use VERSION/debian/changelog.'
+        required: false
+        default: ''
       build_image:
         description: 'Docker image for build (glibc compatibility)'
         required: true
@@ -37,16 +41,8 @@ jobs:
       - name: Resolve version from git tag
         id: release
         run: |
-          if echo "${{ github.ref }}" | grep -qE 'refs/tags/v'; then
-            GIT_TAG="${{ github.ref_name }}"
-          else
-            GIT_TAG="v$(tr -d '\r\n' < VERSION)"
-            echo "Not a tag build; using VERSION file → $GIT_TAG"
-          fi
-          VERSION="${GIT_TAG#v}"
-          echo "git_tag=$GIT_TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "deb_version=${VERSION}-1" >> "$GITHUB_OUTPUT"
+          chmod +x scripts/resolve-release-version.sh
+          ./scripts/resolve-release-version.sh debian/changelog "${{ github.event.inputs.version }}"
 
       - name: Sync VERSION and debian/changelog from tag
         run: |
