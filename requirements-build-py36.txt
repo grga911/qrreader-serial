@@ -1,0 +1,6 @@
+PyAutoGUI>=0.9.52,<0.10
+pyperclipfix
+pyserial
+pyinstaller>=4.10,<5
+wheel
+setuptools

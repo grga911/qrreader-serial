@@ -3,8 +3,7 @@
 # GitHub-hosted "ubuntu-20.04" runners are retired (2025-04). To support Ubuntu 20.04 /
 # Debian 11 on target PCs, we build inside an ubuntu:20.04 *container* on ubuntu-22.04.
 #
-# ubuntu:16.04 is available for older glibc targets (glibc 2.23) but ships Python 3.5;
-# PyInstaller 6+ needs Python 3.8+, so prefer ubuntu:20.04+ for Python builds.
+# ubuntu:16.04 uses Python 3.6 + PyInstaller 4.x for older glibc (2.23) targets.
 #
 # Tag: git tag v4.0.1 && git push origin v4.0.1
 name: Release
@@ -54,20 +53,23 @@ jobs:
           GIT_TAG="${{ steps.release.outputs.git_tag }}" ./scripts/sync-version-from-tag.sh "${{ steps.release.outputs.git_tag }}"
 
       - name: Install build dependencies
+        env:
+          BUILD_IMAGE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_image || 'ubuntu:20.04' }}
         run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            python3 python3-venv python3-pip \
-            debhelper debhelper-compat devscripts file binutils ca-certificates git
+          chmod +x scripts/install-release-build-deps.sh
+          ./scripts/install-release-build-deps.sh "$BUILD_IMAGE" build-env.sh
 
       - name: Show build environment
         run: |
           cat /etc/os-release
           ldd --version | head -1
+          . ./build-env.sh
+          "$PYTHON" --version
 
       - name: Build PyInstaller binary
         run: |
           chmod +x scripts/build-pyinstaller.sh
+          . ./build-env.sh
           ./scripts/build-pyinstaller.sh
 
       - name: Verify debian/ packaging is in repo
