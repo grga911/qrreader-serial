@@ -11,11 +11,12 @@
 #include <string>
 #include <string_view>
 #include <sys/ioctl.h>
-#include <sys/wait.h>
 #include <termios.h>
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>
+
+#include "process_io.h"
 
 namespace {
 
@@ -55,160 +56,6 @@ void debugLog(const std::string& event, const std::string& value) {
               << event << "=\"" << escapeForLog(value) << "\"\n";
 }
 
-int openDevNullWrite() {
-    return open("/dev/null", O_WRONLY);
-}
-
-std::string readPipeOutput(int fd) {
-    std::string output;
-    std::array<char, 1024> buffer{};
-    const size_t bufSize = buffer.size();
-    while (true) {
-        const ssize_t n = read(fd, buffer.data(), bufSize);
-        if (n > 0) {
-            const size_t count = static_cast<size_t>(n);
-            if (count <= bufSize) {
-                output.append(buffer.data(), count);
-            }
-            continue;
-        }
-        break;
-    }
-    return output;
-}
-
-bool spawnWithStdout(char* const argv[], std::string& output) {
-    int pipefd[2];
-    if (pipe(pipefd) != 0) {
-        return false;
-    }
-
-    const pid_t pid = fork();
-    if (pid == 0) {
-        close(pipefd[0]);
-        if (dup2(pipefd[1], STDOUT_FILENO) < 0) {
-            _exit(127);
-        }
-        const int devnull = openDevNullWrite();
-        if (devnull >= 0) {
-            dup2(devnull, STDERR_FILENO);
-            close(devnull);
-        }
-        close(pipefd[1]);
-        execvp(argv[0], argv);
-        _exit(127);
-    }
-    if (pid < 0) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return false;
-    }
-
-    close(pipefd[1]);
-    output = readPipeOutput(pipefd[0]);
-    close(pipefd[0]);
-
-    int status = 0;
-    if (waitpid(pid, &status, 0) < 0) {
-        return false;
-    }
-    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-}
-
-bool spawnWithStdin(char* const argv[], const std::string& input) {
-    int pipefd[2];
-    if (pipe(pipefd) != 0) {
-        return false;
-    }
-
-    const pid_t pid = fork();
-    if (pid == 0) {
-        close(pipefd[1]);
-        if (dup2(pipefd[0], STDIN_FILENO) < 0) {
-            _exit(127);
-        }
-        close(pipefd[0]);
-        execvp(argv[0], argv);
-        _exit(127);
-    }
-    if (pid < 0) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return false;
-    }
-
-    close(pipefd[0]);
-    if (!input.empty()) {
-        size_t offset = 0;
-        while (offset < input.size()) {
-            const ssize_t written = write(
-                pipefd[1], input.data() + offset, input.size() - offset);
-            if (written <= 0) {
-                break;
-            }
-            offset += static_cast<size_t>(written);
-        }
-    }
-    close(pipefd[1]);
-
-    int status = 0;
-    if (waitpid(pid, &status, 0) < 0) {
-        return false;
-    }
-    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-}
-
-std::string readClipboard() {
-    char* argv[] = {
-        const_cast<char*>("xclip"),
-        const_cast<char*>("-selection"),
-        const_cast<char*>("clipboard"),
-        const_cast<char*>("-o"),
-        nullptr,
-    };
-    std::string output;
-    spawnWithStdout(argv, output);
-    return output;
-}
-
-bool writeClipboard(const std::string& text) {
-    char* argv[] = {
-        const_cast<char*>("xclip"),
-        const_cast<char*>("-selection"),
-        const_cast<char*>("clipboard"),
-        nullptr,
-    };
-    return spawnWithStdin(argv, text);
-}
-
-bool simulateCtrlV() {
-    char* argv[] = {
-        const_cast<char*>("xdotool"),
-        const_cast<char*>("key"),
-        const_cast<char*>("ctrl+v"),
-        nullptr,
-    };
-
-    const pid_t pid = fork();
-    if (pid == 0) {
-        const int devnull = openDevNullWrite();
-        if (devnull >= 0) {
-            dup2(devnull, STDOUT_FILENO);
-            dup2(devnull, STDERR_FILENO);
-            close(devnull);
-        }
-        execvp(argv[0], argv);
-        _exit(127);
-    }
-    if (pid < 0) {
-        return false;
-    }
-
-    int status = 0;
-    waitpid(pid, &status, 0);
-    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-}
-
 std::string trimTrailingNewlinesCrLf(const std::string& s) {
     size_t end = s.size();
     while (end > 0 && (s[end - 1] == '\n' || s[end - 1] == '\r')) {
@@ -235,7 +82,7 @@ bool waitClipboardMatchesExpected(const std::string& expected, std::chrono::mill
     const std::string want = normalizeClipboardText(expected);
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     while (std::chrono::steady_clock::now() < deadline) {
-        const std::string cur = readClipboard();
+        const std::string cur = qrreader::readClipboard();
         if (normalizeClipboardText(cur) == want) {
             return true;
         }
@@ -424,27 +271,6 @@ int openSerialPort(const std::string& port) {
     return fd;
 }
 
-std::string readAvailableData(int fd) {
-    std::string data;
-    std::array<char, 1024> buffer{};
-    while (true) {
-        const size_t bufSize = buffer.size();
-        const ssize_t n = read(fd, buffer.data(), bufSize);
-        if (n > 0) {
-            const size_t count = static_cast<size_t>(n);
-            if (count <= bufSize) {
-                data.append(buffer.data(), count);
-            }
-            continue;
-        }
-        if (n == 0 || (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
-            break;
-        }
-        break;
-    }
-    return data;
-}
-
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -472,8 +298,8 @@ int main(int argc, char* argv[]) {
             }
 
             // Read serial before clipboard: xclip can block; bytes could arrive meanwhile.
-            std::string raw = readAvailableData(fd);
-            std::string oldClipboard = readClipboard();
+            std::string raw = qrreader::readAvailableData(fd);
+            std::string oldClipboard = qrreader::readClipboard();
             std::string normalized = replaceNewlinesWithHash(raw);
             std::string decoded = decodeMixedUtf8Cp1252(normalized);
             std::string finalText = transliterateAndFilter(decoded);
@@ -484,7 +310,7 @@ int main(int argc, char* argv[]) {
 
             bool settled = false;
             for (int attempt = 0; attempt < 3; ++attempt) {
-                if (!writeClipboard(finalText)) {
+                if (!qrreader::writeClipboard(finalText)) {
                     std::cerr << "Failed to write clipboard. Install xclip.\n";
                     break;
                 }
@@ -498,15 +324,15 @@ int main(int argc, char* argv[]) {
 
             if (!settled) {
                 std::cerr << "qrreader_linux: clipboard did not update to scan text; skipping paste.\n";
-                writeClipboard(oldClipboard);
+                qrreader::writeClipboard(oldClipboard);
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 continue;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            simulateCtrlV();
+            qrreader::simulateCtrlV();
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            writeClipboard(oldClipboard);
+            qrreader::writeClipboard(oldClipboard);
             debugLog("clipboard_restored", oldClipboard);
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }

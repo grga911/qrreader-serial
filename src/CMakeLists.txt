@@ -50,10 +50,38 @@ else()
     "Fully static link including libc (use a musl toolchain; not recommended with glibc)"
     OFF)
 
-  add_executable(qrreader_linux qrreader_linux.cpp)
+  add_executable(qrreader_linux qrreader_linux.cpp process_io.cpp)
 
   find_package(Threads REQUIRED)
   target_link_libraries(qrreader_linux PRIVATE Threads::Threads)
+
+  if(BUILD_TESTING)
+    enable_testing()
+
+    add_executable(qrreader_linux_test
+      test/qrreader_linux_test.cpp
+      process_io.cpp)
+    target_include_directories(qrreader_linux_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+    file(GLOB QRREADER_TEST_FIXTURES "${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/*.sh")
+    foreach(fixture ${QRREADER_TEST_FIXTURES})
+      file(COPY ${fixture} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/test/fixtures
+           FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                            GROUP_READ GROUP_EXECUTE
+                            WORLD_READ WORLD_EXECUTE)
+    endforeach()
+
+    add_test(
+      NAME qrreader_linux_test
+      COMMAND qrreader_linux_test
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    set_tests_properties(qrreader_linux_test PROPERTIES
+      ENVIRONMENT "QRREADER_TEST_FIXTURES=${CMAKE_CURRENT_BINARY_DIR}/test/fixtures")
+
+    add_test(
+      NAME sync_version_from_tag_test
+      COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/sync-version-from-tag_test.sh)
+  endif()
 
   if(QRREADER_FULLY_STATIC AND QRREADER_STATIC_LIBSTDCPP)
     message(WARNING "QRREADER_FULLY_STATIC is ON; QRREADER_STATIC_LIBSTDCPP is redundant (using full -static).")
