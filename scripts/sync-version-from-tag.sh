@@ -15,7 +15,9 @@ DEB_VERSION="${VERSION}-${DEB_REV}"
 printf '%s\n' "$VERSION" > VERSION
 
 tmp_old=debian/changelog.old
-[ -f debian/changelog ] && mv debian/changelog "$tmp_old" || : 
+if [ -f debian/changelog ]; then
+    mv debian/changelog "$tmp_old"
+fi
 
 {
     printf 'qrreader (%s) stable; urgency=medium\n\n' "$DEB_VERSION"
