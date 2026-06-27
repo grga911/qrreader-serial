@@ -1,3 +1,4 @@
+// cppcheck-suppress-begin missingIncludeSystem
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -15,6 +16,7 @@
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>
+// cppcheck-suppress-end missingIncludeSystem
 
 #include "process_io.h"
 
