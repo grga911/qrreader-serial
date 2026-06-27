@@ -24,6 +24,7 @@ std::string readFdOnce(int fd) {
     int waiting = 0;
     if (ioctl(fd, FIONREAD, &waiting) == 0 && waiting > 0) {
         std::string data(static_cast<size_t>(waiting), '\0');
+        // flawfinder: ignore - bounded read; byte count comes from FIONREAD
         const ssize_t n = read(fd, data.data(), data.size());
         if (n > 0) {
             data.resize(static_cast<size_t>(n));
@@ -33,6 +34,7 @@ std::string readFdOnce(int fd) {
     }
 
     std::array<char, kReadChunkSize> buffer{};
+    // flawfinder: ignore - single bounded read up to kReadChunkSize
     const ssize_t n = read(fd, buffer.data(), buffer.size());
     if (n <= 0) {
         return "";
