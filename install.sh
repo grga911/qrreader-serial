@@ -6,7 +6,6 @@ readonly VERSION=$(lsb_release -sr)
 readonly MIN_VERSION=${VERSION:0:2}
 readonly DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ORIGINAL_USER=$(pstree -lu -s $$ | grep --max-count=1 -o '([^)]*)' | head -n 1 |sed -r "s/[()]+//g")
-DISPLAY_NUM=$(sudo -u $ORIGINAL_USER echo $DISPLAY)
 
 function install_qr(){
 	if pgrep qrreader; then
