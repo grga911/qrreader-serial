@@ -3,6 +3,9 @@
 # GitHub-hosted "ubuntu-20.04" runners are retired (2025-04). To support Ubuntu 20.04 /
 # Debian 11 on target PCs, we build inside an ubuntu:20.04 *container* on ubuntu-22.04.
 #
+# ubuntu:16.04 is available for older glibc targets (glibc 2.23) but ships Python 3.5;
+# PyInstaller 6+ needs Python 3.8+, so prefer ubuntu:20.04+ for Python builds.
+#
 # Tag: git tag v4.0.1 && git push origin v4.0.1
 name: Release
 
@@ -22,6 +25,7 @@ on:
         default: 'ubuntu:20.04'
         type: choice
         options:
+          - ubuntu:16.04
           - ubuntu:20.04
           - ubuntu:22.04
           - debian:11
