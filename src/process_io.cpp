@@ -1,39 +1,49 @@
 #include "process_io.h"
 
+// cppcheck-suppress-begin missingIncludeSystem
 #include <array>
-#include <cerrno>
 #include <cstring>
 #include <fcntl.h>
 #include <string>
+#include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 namespace qrreader {
 
 namespace {
 
+constexpr size_t kReadChunkSize = 4096;
+
 int openDevNullWrite() {
     return open("/dev/null", O_WRONLY);
+}
+
+std::string readFdOnce(int fd) {
+    int waiting = 0;
+    if (ioctl(fd, FIONREAD, &waiting) == 0 && waiting > 0) {
+        std::string data(static_cast<size_t>(waiting), '\0');
+        const ssize_t n = read(fd, data.data(), data.size());
+        if (n > 0) {
+            data.resize(static_cast<size_t>(n));
+            return data;
+        }
+        return "";
+    }
+
+    std::array<char, kReadChunkSize> buffer{};
+    const ssize_t n = read(fd, buffer.data(), buffer.size());
+    if (n <= 0) {
+        return "";
+    }
+    return std::string(buffer.data(), static_cast<size_t>(n));
 }
 
 }  // namespace
 
 std::string readPipeOutput(int fd) {
-    std::string output;
-    std::array<char, 1024> buffer{};
-    const size_t bufSize = buffer.size();
-    while (true) {
-        const ssize_t n = read(fd, buffer.data(), bufSize);
-        if (n > 0) {
-            const size_t count = static_cast<size_t>(n);
-            if (count <= bufSize) {
-                output.append(buffer.data(), count);
-            }
-            continue;
-        }
-        break;
-    }
-    return output;
+    return readFdOnce(fd);
 }
 
 bool spawnWithStdout(char* const argv[], std::string& output) {
@@ -172,24 +182,7 @@ bool simulateCtrlV(const ExternalTools& tools) {
 }
 
 std::string readAvailableData(int fd) {
-    std::string data;
-    std::array<char, 1024> buffer{};
-    while (true) {
-        const size_t bufSize = buffer.size();
-        const ssize_t n = read(fd, buffer.data(), bufSize);
-        if (n > 0) {
-            const size_t count = static_cast<size_t>(n);
-            if (count <= bufSize) {
-                data.append(buffer.data(), count);
-            }
-            continue;
-        }
-        if (n == 0 || (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
-            break;
-        }
-        break;
-    }
-    return data;
+    return readFdOnce(fd);
 }
 
 }  // namespace qrreader

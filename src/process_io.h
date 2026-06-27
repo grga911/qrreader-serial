@@ -1,6 +1,8 @@
 #pragma once
 
+// cppcheck-suppress-begin missingIncludeSystem
 #include <string>
+// cppcheck-suppress-end missingIncludeSystem
 
 namespace qrreader {
 
