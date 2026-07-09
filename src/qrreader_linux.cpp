@@ -1,3 +1,4 @@
+// cppcheck-suppress-begin missingIncludeSystem
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -15,6 +16,9 @@
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>
+// cppcheck-suppress-end missingIncludeSystem
+
+#include "process_io.h"
 
 namespace {
 
@@ -54,31 +58,6 @@ void debugLog(const std::string& event, const std::string& value) {
               << event << "=\"" << escapeForLog(value) << "\"\n";
 }
 
-std::string runCommandRead(const std::string& command) {
-    std::array<char, 1024> buffer{};
-    std::string output;
-    FILE* pipe = popen(command.c_str(), "r");
-    if (!pipe) {
-        return output;
-    }
-    while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe)) {
-        output += buffer.data();
-    }
-    pclose(pipe);
-    return output;
-}
-
-bool runCommandWrite(const std::string& command, const std::string& input) {
-    FILE* pipe = popen(command.c_str(), "w");
-    if (!pipe) {
-        return false;
-    }
-    if (!input.empty()) {
-        fwrite(input.data(), 1, input.size(), pipe);
-    }
-    return pclose(pipe) == 0;
-}
-
 std::string trimTrailingNewlinesCrLf(const std::string& s) {
     size_t end = s.size();
     while (end > 0 && (s[end - 1] == '\n' || s[end - 1] == '\r')) {
@@ -105,7 +84,7 @@ bool waitClipboardMatchesExpected(const std::string& expected, std::chrono::mill
     const std::string want = normalizeClipboardText(expected);
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     while (std::chrono::steady_clock::now() < deadline) {
-        const std::string cur = runCommandRead("xclip -selection clipboard -o 2>/dev/null");
+        const std::string cur = qrreader::readClipboard();
         if (normalizeClipboardText(cur) == want) {
             return true;
         }
@@ -294,23 +273,6 @@ int openSerialPort(const std::string& port) {
     return fd;
 }
 
-std::string readAvailableData(int fd) {
-    std::string data;
-    std::array<char, 1024> buffer{};
-    while (true) {
-        ssize_t n = read(fd, buffer.data(), buffer.size());
-        if (n > 0) {
-            data.append(buffer.data(), static_cast<size_t>(n));
-            continue;
-        }
-        if (n == 0 || (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
-            break;
-        }
-        break;
-    }
-    return data;
-}
-
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -338,8 +300,8 @@ int main(int argc, char* argv[]) {
             }
 
             // Read serial before clipboard: xclip can block; bytes could arrive meanwhile.
-            std::string raw = readAvailableData(fd);
-            std::string oldClipboard = runCommandRead("xclip -selection clipboard -o 2>/dev/null");
+            std::string raw = qrreader::readAvailableData(fd);
+            std::string oldClipboard = qrreader::readClipboard();
             std::string normalized = replaceNewlinesWithHash(raw);
             std::string decoded = decodeMixedUtf8Cp1252(normalized);
             std::string finalText = transliterateAndFilter(decoded);
@@ -350,7 +312,7 @@ int main(int argc, char* argv[]) {
 
             bool settled = false;
             for (int attempt = 0; attempt < 3; ++attempt) {
-                if (!runCommandWrite("xclip -selection clipboard", finalText)) {
+                if (!qrreader::writeClipboard(finalText)) {
                     std::cerr << "Failed to write clipboard. Install xclip.\n";
                     break;
                 }
@@ -364,15 +326,15 @@ int main(int argc, char* argv[]) {
 
             if (!settled) {
                 std::cerr << "qrreader_linux: clipboard did not update to scan text; skipping paste.\n";
-                runCommandWrite("xclip -selection clipboard", oldClipboard);
+                qrreader::writeClipboard(oldClipboard);
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 continue;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            std::system("xdotool key ctrl+v >/dev/null 2>&1");
+            qrreader::simulateCtrlV();
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            runCommandWrite("xclip -selection clipboard", oldClipboard);
+            qrreader::writeClipboard(oldClipboard);
             debugLog("clipboard_restored", oldClipboard);
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }

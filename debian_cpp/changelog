@@ -1,4 +1,4 @@
-qrreader-cpp (4.1.1-1) stable; urgency=medium
+qrreader-cpp (4.1.2-1) stable; urgency=medium
 
   * PyInstaller binary package (dist/qrreader)
   * systemd user service

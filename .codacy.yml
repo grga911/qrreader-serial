@@ -1,0 +1,7 @@
+---
+exclude_paths:
+  - "src/test/**"
+engines:
+  cppcheck:
+    language: c++
+    platform: unix64

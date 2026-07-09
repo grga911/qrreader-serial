@@ -6,6 +6,10 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Version to build (e.g. 4.1.1 or v4.1.1). Leave empty to use VERSION/debian_cpp/changelog.'
+        required: false
+        default: ''
       build_image:
         description: 'Docker image for build'
         required: true
@@ -34,16 +38,8 @@ jobs:
       - name: Resolve version from git tag
         id: release
         run: |
-          if echo "${{ github.ref }}" | grep -qE 'refs/tags/v'; then
-            GIT_TAG="${{ github.ref_name }}"
-          else
-            GIT_TAG="v$(tr -d '\r\n' < VERSION)"
-            echo "Not a tag build; using VERSION file -> $GIT_TAG"
-          fi
-          VERSION="${GIT_TAG#v}"
-          echo "git_tag=$GIT_TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "deb_version=${VERSION}-1" >> "$GITHUB_OUTPUT"
+          chmod +x scripts/resolve-release-version.sh
+          ./scripts/resolve-release-version.sh debian_cpp/changelog "${{ github.event.inputs.version }}"
 
       - name: Sync VERSION and debian/changelog from tag
         run: |
@@ -92,7 +88,7 @@ jobs:
 
       - name: Upload C++ to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: ${{ steps.release.outputs.git_tag }}
           name: Release ${{ steps.release.outputs.git_tag }}
@@ -125,7 +121,7 @@ jobs:
           ./scripts/setup-apt-repo.sh apt-publish
 
       - name: Deploy C++ apt repo to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: apt-publish
