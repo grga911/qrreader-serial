@@ -19,19 +19,46 @@ if [ -n "$missing" ]; then
     exit 1
 fi
 
-install_deb_tools() {
-    if command -v dpkg-buildpackage >/dev/null 2>&1; then
-        return
-    fi
-    echo "==> Installing deb packaging tools"
+apt_run() {
     export DEBIAN_FRONTEND=noninteractive
     if [ "$(id -u)" -eq 0 ]; then
-        apt-get update
-        apt-get install -y debhelper devscripts dpkg-dev file build-essential
+        apt-get "$@"
     else
-        sudo apt-get update
-        sudo apt-get install -y debhelper devscripts dpkg-dev file build-essential
+        sudo apt-get "$@"
     fi
+}
+
+install_deb_tools() {
+    echo "==> Ensuring deb packaging tools (debhelper, devscripts, ...)"
+    apt_run update
+    apt_run install -y debhelper devscripts dpkg-dev file build-essential fakeroot
+}
+
+sync_changelog_from_version() {
+    if [ -n "${GIT_TAG:-}" ]; then
+        VERSION="${GIT_TAG#v}"
+    elif [ -n "${RELEASE_TAG:-}" ]; then
+        VERSION="${RELEASE_TAG#v}"
+    else
+        VERSION="$(tr -d '\r\n' < VERSION)"
+    fi
+    DEB_REV="${DEB_REV:-1}"
+    DEB_VERSION="${VERSION}-${DEB_REV}"
+
+    if grep -q "(${DEB_VERSION})" debian/changelog; then
+        return
+    fi
+
+    echo "==> Updating debian/changelog to (${DEB_VERSION}) from VERSION"
+    tmp_old=debian/changelog.sync.bak
+    cp debian/changelog "$tmp_old"
+    {
+        printf 'qrreader (%s) unstable; urgency=medium\n\n' "$DEB_VERSION"
+        printf '  * Release %s\n\n' "$VERSION"
+        printf ' -- QR Reader Maintainer <qrreader@localhost>  %s\n\n' "$(date -R)"
+        cat "$tmp_old"
+    } > debian/changelog
+    rm -f "$tmp_old"
 }
 
 restore_debian() {
@@ -47,7 +74,10 @@ restore_debian() {
 patch_debian_for_xenial() {
     cp debian/control debian/control.bak.ubuntu16
     cp debian/rules debian/rules.bak.ubuntu16
-    sed 's/debhelper-compat (= 12)/debhelper (>= 9)/' debian/control.bak.ubuntu16 > debian/control
+    sed \
+        -e 's/debhelper-compat (= 12)/debhelper (>= 9)/' \
+        -e '/^Rules-Requires-Root:/d' \
+        debian/control.bak.ubuntu16 > debian/control
     sed 's/dh $@ --buildsystem=none/dh $@/' debian/rules.bak.ubuntu16 > debian/rules
     echo 9 > debian/compat
 }
@@ -55,6 +85,7 @@ patch_debian_for_xenial() {
 trap restore_debian EXIT INT TERM
 
 install_deb_tools
+sync_changelog_from_version
 patch_debian_for_xenial
 
 chmod +x dist/qrreader debian/rules
@@ -68,10 +99,6 @@ else
 fi
 DEB_REV="${DEB_REV:-1}"
 DEB_VERSION="${VERSION}-${DEB_REV}"
-
-if ! grep -q "(${DEB_VERSION})" debian/changelog; then
-    echo "Warning: debian/changelog has no entry for (${DEB_VERSION})"
-fi
 
 echo "Packing qrreader_${DEB_VERSION} (Ubuntu 16.04 / debhelper 9) ..."
 dpkg-buildpackage -us -uc -b
