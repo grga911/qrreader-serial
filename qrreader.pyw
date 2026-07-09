@@ -1,13 +1,14 @@
 #!/usr/bin/python3
 import platform
 from serial import Serial, SerialException
-from pyautogui import hotkey
 from time import sleep
 import time
 import pyperclipfix as pyperclip
 import codecs
 import os
 import re
+import shutil
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -223,6 +224,52 @@ def check_for_updates() -> int:
     return 0
 
 
+def simulate_ctrl_v() -> bool:
+    """Paste clipboard via OS tools (xdotool on Linux, ctypes on Windows)."""
+    if sys.platform.startswith("linux"):
+        xdotool = shutil.which("xdotool")
+        if not xdotool:
+            print("qrreader: xdotool not found; install: apt install xdotool", flush=True)
+            return False
+        try:
+            result = subprocess.run(
+                [xdotool, "key", "ctrl+v"],
+                env=os.environ,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            print(f"qrreader: xdotool failed: {exc}", flush=True)
+            return False
+        if result.returncode != 0:
+            err = result.stderr.decode("utf-8", errors="replace").strip()
+            print(f"qrreader: xdotool exited {result.returncode}: {err}", flush=True)
+            return False
+        return True
+
+    if sys.platform.startswith("win"):
+        try:
+            import ctypes
+
+            user32 = ctypes.windll.user32
+            VK_CONTROL = 0x11
+            VK_V = 0x56
+            KEYEVENTF_KEYUP = 0x0002
+            user32.keybd_event(VK_CONTROL, 0, 0, 0)
+            user32.keybd_event(VK_V, 0, 0, 0)
+            user32.keybd_event(VK_V, 0, KEYEVENTF_KEYUP, 0)
+            user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
+            return True
+        except Exception as exc:
+            print(f"qrreader: paste hotkey failed: {exc}", flush=True)
+            return False
+
+    print(f"qrreader: paste hotkey not supported on {sys.platform}", flush=True)
+    return False
+
+
 def print_usage():
     print(
         """Usage:
@@ -302,7 +349,12 @@ if __name__ == "__main__":
                             continue
 
                         sleep(0.05)
-                        hotkey("ctrl", "v")
+                        if not simulate_ctrl_v():
+                            try:
+                                pyperclip.copy(old_clipboard)
+                            except Exception:
+                                pass
+                            continue
                         sleep(0.2)
                         pyperclip.copy(old_clipboard)
                         sleep(0.2)

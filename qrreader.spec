@@ -10,7 +10,7 @@ console = _is_linux
 
 _icon = ['readerCOM21.ico'] if os.path.isfile('readerCOM21.ico') else None
 
-# Keep EXE small: drop optional pyautogui / imaging stacks
+# Keep EXE small: drop optional imaging stacks
 _excludes = [
     'tkinter',
     'matplotlib',
@@ -21,16 +21,13 @@ _excludes = [
     'cv2',
     'pytest',
     'IPython',
+    'pyautogui',
+    'Xlib',
 ]
 
 _hiddenimports = [
     'serial',
     'pyperclipfix',
-    'pyautogui',
-    'pyautogui._pyautogui_x11',
-    'Xlib',
-    'Xlib.display',
-    'Xlib.ext.xtest',
 ]
 
 a = Analysis(

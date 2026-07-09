@@ -8,7 +8,7 @@ Rules-Requires-Root: no
 
 Package: qrreader
 Architecture: amd64
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}, xclip, xdotool
 Description: QR/barcode serial reader (PyInstaller binary)
  Standalone qrreader: serial scanner to clipboard paste.
  Configure port in /etc/qrreader/port.

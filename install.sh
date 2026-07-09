@@ -14,7 +14,7 @@ function install_qr(){
 	echo "Radim update"
     sudo apt update -q=2
 	sudo apt-get --fix-broken install -y -q=1
-    sudo apt install xclip -y -q=2
+    sudo apt install xclip xdotool -y -q=2
 	sudo pkill qrreader
 	sudo -u "$1" XDG_RUNTIME_DIR="/run/user/$(id -u $1)" systemctl --user disable --now qrreader
     sudo cp "$DIR/$2" /usr/local/bin/qrreader

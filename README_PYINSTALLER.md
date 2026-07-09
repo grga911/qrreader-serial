@@ -11,6 +11,7 @@ sudo apt install -y python3 python3-venv python3-pip \
 ```
 
 Runtime on target PC (X11 paste): user must be logged into a graphical session (`DISPLAY=:0`).
+Install `xclip` and `xdotool` (included as dependencies in the `.deb` package).
 
 ## Build
 
@@ -23,7 +24,7 @@ What the script does:
 
 1. Creates `.venv-build`
 2. `pip install -r requirements-build.txt`
-3. `pip uninstall` packages listed in **`non-requirements.txt`** (trim fat from pyautogui deps)
+3. `pip uninstall` packages listed in **`non-requirements.txt`** (trim fat from transitive deps)
 4. `pyinstaller qrreader.spec` → **`dist/qrreader`**
 
 Edit **`non-requirements.txt`** if PyInstaller warns about missing modules — remove that package from the uninstall list.
@@ -87,7 +88,7 @@ Or `/etc/qrreader/port` (if readable by your user).
 - **Linux:** `console=True` (logs in journalctl)
 - **Windows:** `console=False` when built on Windows (same spec detects platform)
 - **Icon:** `readerCOM21.ico` only if present in project root
-- **excludes / hiddenimports:** tuned for serial + clipboard + X11 hotkey
+- **excludes / hiddenimports:** tuned for serial + clipboard; paste uses `xdotool` at runtime (Linux)
 
 ## Files
 
