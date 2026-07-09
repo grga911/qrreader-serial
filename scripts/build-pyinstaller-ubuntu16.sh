@@ -5,8 +5,8 @@
 # (skipped when python3.6 is already present), then runs the PyInstaller build.
 #
 # Usage (on Ubuntu 16.04 build machine):
-#   chmod +x scripts/build-pyinstaller-ubuntu16.sh
-#   ./scripts/build-pyinstaller-ubuntu16.sh
+#   sh ./scripts/build-pyinstaller-ubuntu16.sh
+#   # or: chmod +x scripts/build-pyinstaller-ubuntu16.sh && ./scripts/build-pyinstaller-ubuntu16.sh
 #
 # Optional env:
 #   SKIP_PYTHON_BUILD=1   — require existing python3.6 in PATH (no compile)
@@ -50,7 +50,7 @@ require_root() {
             PYTHON36_PREFIX="$PYTHON36_PREFIX" \
             PYTHON36="$PYTHON36" \
             VENV_DIR="$VENV_DIR" \
-            "$SCRIPT" "$@"
+            sh "$SCRIPT" "$@"
     fi
 }
 
@@ -203,7 +203,7 @@ case "${1:-}" in
                 PYTHON36_PREFIX="$PYTHON36_PREFIX" \
                 PYTHON36="$PYTHON36" \
                 VENV_DIR="$VENV_DIR" \
-                "$SCRIPT" --install-python
+                sh "$SCRIPT" --install-python
         fi
         build_pyinstaller_binary
         ;;

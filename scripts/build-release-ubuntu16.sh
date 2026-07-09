@@ -3,5 +3,5 @@
 set -e
 cd "$(dirname "$0")/.."
 
-./scripts/build-pyinstaller-ubuntu16.sh
-./scripts/build-deb-ubuntu16.sh
+sh ./scripts/build-pyinstaller-ubuntu16.sh
+sh ./scripts/build-deb-ubuntu16.sh
