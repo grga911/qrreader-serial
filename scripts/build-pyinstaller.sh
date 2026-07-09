@@ -25,6 +25,7 @@ while IFS= read -r pkg || [ -n "$pkg" ]; do
 done < non-requirements.txt
 
 echo "==> PyInstaller build (qrreader.spec)"
+rm -rf build dist
 pyinstaller --clean --noconfirm qrreader.spec
 
 if [ ! -f dist/qrreader ]; then
@@ -32,7 +33,11 @@ if [ ! -f dist/qrreader ]; then
     exit 1
 fi
 
+if command -v strip >/dev/null 2>&1; then
+    strip --strip-unneeded dist/qrreader 2>/dev/null || true
+fi
+
 chmod +x dist/qrreader
 echo ""
-echo "Built: $(pwd)/dist/qrreader"
+echo "Built: $(pwd)/dist/qrreader ($(du -h dist/qrreader | cut -f1))"
 echo "Install: sudo scripts/install-pyinstaller.sh"

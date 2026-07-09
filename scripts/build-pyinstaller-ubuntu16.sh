@@ -102,10 +102,7 @@ install_python36_from_source() {
     tar -xzf "$src"
     cd "Python-${PYTHON_RELEASE}"
 
-    ./configure \
-        --prefix="$PYTHON36_PREFIX" \
-        --enable-shared \
-        LDFLAGS="-Wl,-rpath,$PYTHON36_PREFIX/lib"
+    ./configure --prefix="$PYTHON36_PREFIX"
 
     make -j"$(nproc 2>/dev/null || echo 2)"
     make altinstall
@@ -118,7 +115,6 @@ install_python36_from_source() {
         exit 1
     fi
 
-    ldconfig "$PYTHON36_PREFIX/lib" 2>/dev/null || true
     echo "==> Installed: $("$PYTHON36" --version)"
 }
 
@@ -167,6 +163,7 @@ build_pyinstaller_binary() {
     done < non-requirements.txt
 
     echo "==> PyInstaller build (qrreader.spec)"
+    rm -rf build dist
     pyinstaller --clean --noconfirm qrreader.spec
 
     if [ ! -f dist/qrreader ]; then
@@ -174,9 +171,13 @@ build_pyinstaller_binary() {
         exit 1
     fi
 
+    if command -v strip >/dev/null 2>&1; then
+        strip --strip-unneeded dist/qrreader 2>/dev/null || true
+    fi
+
     chmod +x dist/qrreader
     echo ""
-    echo "Built: $(pwd)/dist/qrreader"
+    echo "Built: $(pwd)/dist/qrreader ($(du -h dist/qrreader | cut -f1))"
     echo "Install: sudo scripts/install-pyinstaller.sh"
     echo "Package: ./scripts/build-deb-ubuntu16.sh"
     echo "Full release: ./scripts/build-release-ubuntu16.sh"

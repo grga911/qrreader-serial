@@ -10,7 +10,7 @@ console = _is_linux
 
 _icon = ['readerCOM21.ico'] if os.path.isfile('readerCOM21.ico') else None
 
-# Keep EXE small: drop optional imaging stacks
+# Keep EXE small: drop unused stdlib and build-time packages
 _excludes = [
     'tkinter',
     'matplotlib',
@@ -23,6 +23,32 @@ _excludes = [
     'IPython',
     'pyautogui',
     'Xlib',
+    'PyInstaller',
+    'setuptools',
+    'pkg_resources',
+    'wheel',
+    'pip',
+    'asyncio',
+    'unittest',
+    'test',
+    'tests',
+    'xml',
+    'xmlrpc',
+    'html',
+    'email',
+    'sqlite3',
+    'lib2to3',
+    'pydoc',
+    'doctest',
+    'curses',
+    'multiprocessing',
+    'distutils',
+    'idlelib',
+    'turtledemo',
+    'ensurepip',
+    'venv',
+    'bdb',
+    'pdb',
 ]
 
 _hiddenimports = [
@@ -57,7 +83,7 @@ exe = EXE(
     name='qrreader',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=False,
+    strip=True,
     upx=not _is_linux,
     upx_exclude=[],
     runtime_tmpdir=None,
