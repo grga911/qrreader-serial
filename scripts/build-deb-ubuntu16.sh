@@ -76,10 +76,13 @@ patch_debian_for_xenial() {
     cp debian/rules debian/rules.bak.ubuntu16
     sed \
         -e 's/debhelper-compat (= 12)/debhelper (>= 9)/' \
+        -e 's/, ${shlibs:Depends}//' \
         -e '/^Rules-Requires-Root:/d' \
         debian/control.bak.ubuntu16 > debian/control
-    sed 's/dh $@ --buildsystem=none/dh $@/' debian/rules.bak.ubuntu16 > debian/rules
+    cp scripts/debian/rules.ubuntu16 debian/rules
     echo 9 > debian/compat
+    chmod -x debian/install 2>/dev/null || true
+    chmod -x debian/qrreader.install 2>/dev/null || true
 }
 
 trap restore_debian EXIT INT TERM
