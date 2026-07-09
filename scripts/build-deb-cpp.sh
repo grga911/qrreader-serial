@@ -53,8 +53,7 @@ echo "Building C++ binary..."
 rm -rf build-linux dist
 mkdir -p dist
 
-cmake -S src -B build-linux \
-    -DCMAKE_BUILD_TYPE=Release \
+cmake -S src -B build-linux -DCMAKE_BUILD_TYPE=Release
 
 cmake --build build-linux --config Release -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
 strip build-linux/qrreader_linux -o build-linux/qrreader_linux.stripped
