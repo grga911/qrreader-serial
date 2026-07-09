@@ -71,6 +71,43 @@ restore_debian() {
     rm -f debian/compat
 }
 
+write_rules_ubuntu16() {
+    cat > debian/rules <<'EOF'
+#!/usr/bin/make -f
+export DH_VERBOSE = 1
+
+# Ubuntu 16.04 / debhelper 9: explicit installs (do not rely on debian/install manifest).
+%:
+	dh $@
+
+override_dh_auto_configure:
+
+override_dh_autoreconf:
+
+override_dh_auto_build:
+	@test -f dist/qrreader || (echo "Missing dist/qrreader — run: ./scripts/build-pyinstaller.sh" && exit 1)
+	@file dist/qrreader | grep -qE 'ELF .+ executable' || (echo "dist/qrreader is not a Linux ELF binary" && exit 1)
+	chmod 755 dist/qrreader
+
+override_dh_auto_install:
+
+override_dh_auto_test:
+
+override_dh_install:
+	install -d debian/qrreader/usr/bin
+	install -d debian/qrreader/usr/share/qrreader
+	install -d debian/qrreader/usr/lib/systemd/user
+	install -d debian/qrreader/etc/qrreader
+	install -m 755 dist/qrreader debian/qrreader/usr/bin/qrreader
+	install -m 644 VERSION debian/qrreader/usr/share/qrreader/VERSION
+	install -m 644 qrreader.service debian/qrreader/usr/lib/systemd/user/qrreader.service
+	install -m 644 debian/default/port debian/qrreader/etc/qrreader/port
+	install -m 644 debian/default/update.url debian/qrreader/etc/qrreader/update.url.example
+
+override_dh_shlibdeps:
+EOF
+}
+
 patch_debian_for_xenial() {
     cp debian/control debian/control.bak.ubuntu16
     cp debian/rules debian/rules.bak.ubuntu16
@@ -79,7 +116,7 @@ patch_debian_for_xenial() {
         -e 's/, ${shlibs:Depends}//' \
         -e '/^Rules-Requires-Root:/d' \
         debian/control.bak.ubuntu16 > debian/control
-    cp scripts/debian/rules.ubuntu16 debian/rules
+    write_rules_ubuntu16
     echo 9 > debian/compat
     chmod -x debian/install 2>/dev/null || true
     chmod -x debian/qrreader.install 2>/dev/null || true
