@@ -35,7 +35,6 @@ _excludes = [
     'xml',
     'xmlrpc',
     'html',
-    'email',
     'sqlite3',
     'lib2to3',
     'pydoc',
