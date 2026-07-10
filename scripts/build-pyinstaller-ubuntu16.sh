@@ -43,6 +43,36 @@ python36_ready() {
         && "$PYTHON36" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 6) else 1)'
 }
 
+python36_libdir() {
+    "$PYTHON36" -c 'import sys, sysconfig; print(sysconfig.get_config_var("LIBDIR") or (sys.prefix + "/lib"))'
+}
+
+# PyInstaller needs libpython3.6m.so; source builds require --enable-shared.
+python36_has_shared_lib() {
+    if ! python36_ready; then
+        return 1
+    fi
+    libdir="$(python36_libdir)"
+    for lib in libpython3.6m.so libpython3.6m.so.1.0; do
+        if [ -f "$libdir/$lib" ]; then
+            return 0
+        fi
+    done
+    set -- "$libdir"/libpython3.6*.so*
+    [ -e "$1" ] 2>/dev/null
+}
+
+require_python36_shared_lib() {
+    if python36_has_shared_lib; then
+        return 0
+    fi
+    echo "ERROR: $PYTHON36 exists but libpython3.6m.so is missing."
+    echo "PyInstaller requires a shared Python library (--enable-shared at compile time)."
+    echo "Reinstall Python 3.6:"
+    echo "  sudo sh $SCRIPT --install-python"
+    exit 1
+}
+
 require_root() {
     if [ "$(id -u)" -ne 0 ]; then
         exec sudo -E env \
@@ -88,7 +118,7 @@ install_apt_packages() {
 
 install_python36_from_source() {
     if [ "${SKIP_PYTHON_BUILD:-0}" = "1" ]; then
-        echo "SKIP_PYTHON_BUILD=1 but $PYTHON36 is missing or not 3.6"
+        echo "SKIP_PYTHON_BUILD=1 but $PYTHON36 is missing, not 3.6, or lacks libpython3.6m.so"
         exit 1
     fi
 
@@ -102,10 +132,17 @@ install_python36_from_source() {
     tar -xzf "$src"
     cd "Python-${PYTHON_RELEASE}"
 
-    ./configure --prefix="$PYTHON36_PREFIX"
+    # --enable-shared: PyInstaller bundles libpython3.6m.so into the binary.
+    LDFLAGS="-Wl,-rpath,$PYTHON36_PREFIX/lib" ./configure \
+        --prefix="$PYTHON36_PREFIX" \
+        --enable-shared
 
     make -j"$(nproc 2>/dev/null || echo 2)"
     make altinstall
+
+    if command -v ldconfig >/dev/null 2>&1; then
+        ldconfig "$PYTHON36_PREFIX/lib" 2>/dev/null || true
+    fi
 
     cd /
     rm -rf "$BUILD_DIR"
@@ -114,8 +151,12 @@ install_python36_from_source() {
         echo "Python 3.6 install failed: $PYTHON36 not found"
         exit 1
     fi
+    if ! python36_has_shared_lib; then
+        echo "Python 3.6 install failed: libpython3.6m.so not found under $(python36_libdir)"
+        exit 1
+    fi
 
-    echo "==> Installed: $("$PYTHON36" --version)"
+    echo "==> Installed: $("$PYTHON36" --version) (shared lib: $(python36_libdir)/libpython3.6m.so*)"
 }
 
 install_pip_for_python36() {
@@ -134,6 +175,9 @@ cmd_install_python() {
     install_apt_packages
     if ! python36_ready; then
         install_python36_from_source
+    elif ! python36_has_shared_lib; then
+        echo "==> Python 3.6 present but missing shared library; rebuilding"
+        install_python36_from_source
     else
         echo "==> Python 3.6 already present: $("$PYTHON36" --version)"
     fi
@@ -142,6 +186,10 @@ cmd_install_python() {
 
 build_pyinstaller_binary() {
     require_user
+    require_python36_shared_lib
+
+    PYTHON_LIBDIR="$(python36_libdir)"
+    export LD_LIBRARY_PATH="${PYTHON_LIBDIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
     echo "==> Creating venv: $VENV_DIR"
     rm -rf "$VENV_DIR"
@@ -198,7 +246,9 @@ case "${1:-}" in
         if [ "$major" != "16" ] && [ "$major" != "unknown" ]; then
             echo "Warning: expected Ubuntu 16.04, detected major version $major"
         fi
-        if ! python36_ready || ! "$PYTHON36" -m pip --version >/dev/null 2>&1; then
+        if ! python36_ready \
+            || ! python36_has_shared_lib \
+            || ! "$PYTHON36" -m pip --version >/dev/null 2>&1; then
             sudo -E env \
                 SKIP_PYTHON_BUILD="${SKIP_PYTHON_BUILD:-}" \
                 PYTHON36_PREFIX="$PYTHON36_PREFIX" \
