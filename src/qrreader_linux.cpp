@@ -93,16 +93,6 @@ bool waitClipboardMatchesExpected(const std::string& expected, std::chrono::mill
     return false;
 }
 
-void finalizeClipboardAfterPaste() {
-    // Target apps read the clipboard asynchronously after Ctrl+V. We NEVER write
-    // the previous clipboard ("Old") back: doing so pasted the previous scan
-    // (the Merkur/Potisje sticky-paste bug). Clearing (not leaving the scan)
-    // also blocks an accidental manual Ctrl+V from repeating the last slip.
-    // Rescanning the same barcode still works: the next scan re-copies its text.
-    std::this_thread::sleep_for(std::chrono::milliseconds(800));
-    qrreader::clearClipboard();
-}
-
 void logScan(const std::string& oldClipboard, const std::string& copyResult) {
     using Clock = std::chrono::system_clock;
     const auto now = Clock::now();
@@ -350,7 +340,6 @@ int main(int argc, char* argv[]) {
 
             if (!settled) {
                 std::cerr << "qrreader_linux: clipboard did not update to scan text; skipping paste.\n";
-                qrreader::clearClipboard();
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 continue;
             }
@@ -359,14 +348,16 @@ int main(int argc, char* argv[]) {
                                               std::chrono::milliseconds(30))) {
                 std::cerr << "qrreader_linux: clipboard no longer matches scan text before paste; "
                              "skipping paste.\n";
-                qrreader::clearClipboard();
                 continue;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             qrreader::simulateCtrlV();
-            finalizeClipboardAfterPaste();
-            debugLog("clipboard_cleared", oldClipboard);
+            // Leave the scanned text (New) on the clipboard: never restore the
+            // previous clipboard ("Old", the Merkur sticky-paste) and do not
+            // write a placeholder.
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            debugLog("clipboard_kept", finalText);
         }
 
         close(fd);

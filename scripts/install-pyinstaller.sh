@@ -20,8 +20,8 @@ fi
 # Runtime helpers used for clipboard paste on X11.
 ensure_apt_packages xclip xdotool
 
-echo "==> Installing binary to /usr/bin/qrreader (sudo)"
-sudo install -m 755 dist/qrreader /usr/bin/qrreader
+echo "==> Installing binary to /usr/local/bin/qrreader (sudo)"
+sudo install -m 755 dist/qrreader /usr/local/bin/qrreader
 
 USER_UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 mkdir -p "$USER_UNIT_DIR"

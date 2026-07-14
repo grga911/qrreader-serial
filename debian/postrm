@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+case "$1" in
+    remove|purge)
+        if [ -L /usr/local/bin/qrreader ]; then
+            rm -f /usr/local/bin/qrreader
+        fi
+        ;;
+esac
+#DEBHELPER#
+exit 0
