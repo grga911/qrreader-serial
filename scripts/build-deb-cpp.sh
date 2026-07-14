@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build C++ Linux binary and pack it into a .deb.
+# Pack pre-built C++ binary (dist/qrreader) into a qrreader-cpp .deb.
 set -e
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 cd "$SCRIPT_DIR/.."
@@ -9,7 +9,12 @@ cd "$SCRIPT_DIR/.."
 
 ensure_apt_packages \
     debhelper debhelper-compat devscripts dpkg-dev file \
-    build-essential fakeroot cmake
+    build-essential fakeroot
+
+if [ ! -f dist/qrreader ]; then
+    echo "Missing dist/qrreader — run: ./scripts/build-cpp.sh"
+    exit 1
+fi
 
 missing=""
 for f in debian_cpp/control debian_cpp/rules debian_cpp/install debian_cpp/changelog; do
@@ -22,6 +27,8 @@ if [ -n "$missing" ]; then
     echo "Ensure debian_cpp/ is committed."
     exit 1
 fi
+
+chmod 755 dist/qrreader
 
 if [ -n "${GIT_TAG:-}" ]; then
     VERSION="${GIT_TAG#v}"
@@ -46,27 +53,6 @@ echo "Preparing debian/ from debian_cpp/..."
 rm -rf debian
 cp -a debian_cpp debian
 chmod +x debian/rules
-
-echo "Building C++ binary..."
-rm -rf build-linux dist
-mkdir -p dist
-
-cmake -S src -B build-linux -DCMAKE_BUILD_TYPE=Release
-
-cmake --build build-linux --config Release -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
-strip build-linux/qrreader_linux -o build-linux/qrreader_linux.stripped
-mv build-linux/qrreader_linux.stripped build-linux/qrreader_linux
-
-if [ ! -f build-linux/qrreader_linux ]; then
-    echo "Error: build output missing: build-linux/qrreader_linux"
-    exit 1
-fi
-
-cp build-linux/qrreader_linux dist/qrreader
-chmod 755 dist/qrreader
-
-echo "Built binary:"
-file dist/qrreader
 
 echo "Packing qrreader-cpp_${DEB_VERSION} ..."
 dpkg-buildpackage -us -uc -b

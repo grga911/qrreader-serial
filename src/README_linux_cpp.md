@@ -18,6 +18,16 @@ sudo apt install -y build-essential cmake xclip xdotool
 
 ## Build
 
+Recommended (from repo root):
+
+```bash
+./scripts/build-cpp.sh
+```
+
+Produces **`dist/qrreader`**. Pack a `.deb` with `./scripts/build-deb-cpp.sh`, or both with `./scripts/build-release-cpp.sh`.
+
+Manual cmake (from `src/`):
+
 ```bash
 cmake -S . -B build-linux
 cmake --build build-linux --config Release
