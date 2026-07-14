@@ -5,14 +5,15 @@
 #   ./scripts/setup-apt-repo.sh ./apt-repo
 #   ./scripts/setup-apt-repo.sh ./apt-repo ../*.deb
 set -e
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+
+# shellcheck source=./ensure-apt-packages.sh
+. "$SCRIPT_DIR/ensure-apt-packages.sh"
 
 REPO_DIR="${1:-./apt-repo}"
 shift || true
 
-if ! command -v apt-ftparchive >/dev/null 2>&1; then
-    echo "Install: sudo apt install apt-utils"
-    exit 1
-fi
+ensure_apt_packages apt-utils
 
 mkdir -p "$REPO_DIR"
 

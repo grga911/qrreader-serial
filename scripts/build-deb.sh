@@ -1,12 +1,13 @@
 #!/bin/sh
 # Pack pre-built PyInstaller binary (dist/qrreader) into a .deb.
 set -e
-cd "$(dirname "$0")/.."
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+cd "$SCRIPT_DIR/.."
 
-if ! command -v dpkg-buildpackage >/dev/null 2>&1; then
-    echo "Install: sudo apt install debhelper devscripts file"
-    exit 1
-fi
+# shellcheck source=./ensure-apt-packages.sh
+. "$SCRIPT_DIR/ensure-apt-packages.sh"
+
+ensure_apt_packages debhelper debhelper-compat devscripts dpkg-dev file build-essential fakeroot
 
 if [ ! -f dist/qrreader ]; then
     echo "Missing dist/qrreader — run: ./scripts/build-pyinstaller.sh"

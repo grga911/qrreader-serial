@@ -1,7 +1,14 @@
 #!/bin/sh
 # Build standalone qrreader binary with PyInstaller (Linux).
 set -e
-cd "$(dirname "$0")/.."
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+cd "$SCRIPT_DIR/.."
+
+# shellcheck source=./ensure-apt-packages.sh
+. "$SCRIPT_DIR/ensure-apt-packages.sh"
+
+# python3-venv is required for `python3 -m venv`; binutils for strip/objdump.
+ensure_apt_packages python3 python3-venv python3-pip binutils
 
 VENV_DIR="${VENV_DIR:-.venv-build}"
 PYTHON="${PYTHON:-python3}"
