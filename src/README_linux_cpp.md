@@ -80,7 +80,7 @@ Logs are printed to stderr in this form:
 ```text
 [2026-05-20 12:00:00.123] clipboard_before="..."
 [2026-05-20 12:00:00.456] pasted_text="..."
-[2026-05-20 12:00:00.789] clipboard_kept="..."
+[2026-05-20 12:00:00.789] clipboard_cleared="..."
 ```
 
 ## Behavior parity with Python version
@@ -93,7 +93,7 @@ Logs are printed to stderr in this form:
 - Applies Serbian Cyrillic to Latin transliteration plus:
   - `:` -> `>`
   - `|` -> `#`
-- Writes decoded text, sends `Ctrl+V`, and leaves that text on the clipboard (never restores the previous clipboard)
+- Writes decoded text, sends `Ctrl+V`, then clears the clipboard to empty (never restores the previous clipboard)
 
 ## Stale serial data (wrong paste)
 
@@ -119,7 +119,8 @@ Field logs showed this pattern:
 Mitigations now:
 
 - **Never write the previous clipboard (`Old`) back.** This removes the sticky-paste by construction: a previous slip can no longer be on the clipboard when the app reads the paste, regardless of timing.
-- After a successful paste, **leave the scanned text (`New`) on the clipboard**. We do not restore `Old` and do not write a placeholder space.
+- After a successful paste, wait ~800ms (so the app consumes `New`), then **clear the clipboard to empty**. We own an empty selection (via `xclip`/`xsel -i`) rather than merely unsetting it, so scanned payment data does not linger.
+  - Caveat: a clipboard manager (GNOME, Klipper, CopyQ, …) may re-populate a cleared clipboard. The Python version verifies the clipboard reads back empty and logs a warning if it could not fully clear.
 - Re-check that the clipboard still matches `New` immediately before `Ctrl+V`.
 - **Rescanning the same barcode still works**: each scan re-copies and re-verifies its own text, so there is no duplicate-scan suppression.
 - Log `Old` / `New` with timestamps for journal diagnosis.

@@ -170,26 +170,28 @@ bool writeClipboard(const std::string& text, const ExternalTools& tools) {
         const_cast<char*>("clipboard"),
         nullptr,
     };
-    // Empty stdin often leaves the previous X11 selection unchanged; overwrite
-    // with a single space so sticky scans (e.g. Merkur) cannot survive a "clear".
-    if (text.empty()) {
-        return spawnWithStdin(argv, " ");
-    }
     return spawnWithStdin(argv, text);
 }
 
 bool clearClipboard(const ExternalTools& tools) {
-    // Overwrite (never empty) both selections with a space. Emptying makes
-    // clipboard managers restore the previous entry, which would let the
-    // user's earlier copy be pasted again after a scan.
-    const bool clip = writeClipboard(" ", tools);
+    // Own an EMPTY selection on both clipboard and primary so scanned data
+    // does not linger. xclip forks a helper that serves the empty value, so
+    // the selection is owned (not merely unset) — this is closer to a true
+    // clear than leaving the selection unowned.
+    char* clipboardArgv[] = {
+        const_cast<char*>(tools.xclip),
+        const_cast<char*>("-selection"),
+        const_cast<char*>("clipboard"),
+        nullptr,
+    };
     char* primaryArgv[] = {
         const_cast<char*>(tools.xclip),
         const_cast<char*>("-selection"),
         const_cast<char*>("primary"),
         nullptr,
     };
-    const bool primary = spawnWithStdin(primaryArgv, " ");
+    const bool clip = spawnWithStdin(clipboardArgv, "");
+    const bool primary = spawnWithStdin(primaryArgv, "");
     return clip || primary;
 }
 
