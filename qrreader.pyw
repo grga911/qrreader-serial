@@ -147,6 +147,106 @@ def wait_clipboard_matches(expected: str, timeout_sec: float = 2.0, poll_sec: fl
     return False
 
 
+def _clipboard_is_empty() -> bool:
+    try:
+        return _normalize_for_clipboard_compare(pyperclip.paste()) == ""
+    except Exception:
+        return False
+
+
+def clear_clipboard() -> bool:
+    """
+    Fully clear the clipboard (and PRIMARY) to EMPTY after a scan so the
+    scanned payment data does not linger.
+
+    We take ownership of an empty selection (xsel/xclip fork a helper that
+    serves the empty value) rather than only "unsetting" it: unsetting leaves
+    the selection unowned, which lets a clipboard manager restore the previous
+    entry. After clearing we read the clipboard back and only report success
+    if it is actually empty; several mechanisms are tried in order.
+    """
+    if sys.platform.startswith("linux"):
+        xsel = shutil.which("xsel")
+        xclip = shutil.which("xclip")
+
+        # Own an empty selection (empty stdin). Later owners win, so end on the
+        # most reliable tool available.
+        owners = []
+        if xsel:
+            owners += [[xsel, "-ib"], [xsel, "-ip"]]
+        if xclip:
+            owners += [[xclip, "-selection", "clipboard"], [xclip, "-selection", "primary"]]
+        for cmd in owners:
+            try:
+                subprocess.run(
+                    cmd,
+                    input=b"",
+                    env=os.environ,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        sleep(0.05)
+        if _clipboard_is_empty():
+            return True
+
+        # Fallback: unset the selections outright (may be restored by a
+        # clipboard manager, but better than leaving the scan in place).
+        if xsel:
+            for flag in ("-bc", "-c"):
+                try:
+                    subprocess.run(
+                        [xsel, flag],
+                        env=os.environ,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=5,
+                        check=False,
+                    )
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+            sleep(0.05)
+            if _clipboard_is_empty():
+                return True
+
+    if sys.platform.startswith("win"):
+        try:
+            import ctypes
+
+            user32 = ctypes.windll.user32
+            if user32.OpenClipboard(None):
+                try:
+                    user32.EmptyClipboard()
+                finally:
+                    user32.CloseClipboard()
+                return True
+        except Exception:
+            pass
+
+    try:
+        pyperclip.copy("")
+    except Exception:
+        return False
+    return _clipboard_is_empty()
+
+
+def clear_clipboard_after_paste() -> None:
+    """
+    Wait for the target app to consume the paste, then clear the clipboard.
+    Clearing sooner would race the paste consumer.
+    """
+    sleep(0.8)
+    if not clear_clipboard():
+        print(
+            "qrreader: could not fully clear clipboard (a clipboard manager may "
+            "be restoring it).",
+            flush=True,
+        )
+
+
 def log_scan(old_clipboard: str, copy_result: str) -> None:
     now = time.strftime("%H:%M:%S %d.%m.%Y")
     print(f"{now} Old '{old_clipboard}'", flush=True)
@@ -349,6 +449,7 @@ if __name__ == "__main__":
                                 "skipping paste (avoids pasting stale clipboard).",
                                 flush=True,
                             )
+                            clear_clipboard()
                             continue
 
                         # Final gate: refuse Ctrl+V if clipboard drifted away from New.
@@ -358,15 +459,17 @@ if __name__ == "__main__":
                                 "skipping paste.",
                                 flush=True,
                             )
+                            clear_clipboard()
                             continue
 
                         sleep(0.05)
                         if not simulate_ctrl_v():
+                            clear_clipboard()
                             continue
-                        # Leave the scanned text (New) on the clipboard. We never
-                        # restore the previous clipboard ("Old") — that caused the
-                        # Merkur sticky-paste — and we do not write a placeholder.
-                        sleep(0.2)
+                        # Never restore the previous clipboard ("Old") — that caused
+                        # the Merkur sticky-paste. Clear to empty once the target app
+                        # has consumed the paste so scanned data does not linger.
+                        clear_clipboard_after_paste()
                     except (SerialException, OSError) as e:
                         print(f"serial_disconnected {COM_PORT}: {e}", flush=True)
                         break

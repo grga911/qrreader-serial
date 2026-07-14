@@ -93,6 +93,16 @@ bool waitClipboardMatchesExpected(const std::string& expected, std::chrono::mill
     return false;
 }
 
+void clearClipboardAfterPaste() {
+    // Wait for the target app to consume the paste, then clear to empty so the
+    // scanned data does not linger. Clearing sooner would race the consumer.
+    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    if (!qrreader::clearClipboard()) {
+        std::cerr << "qrreader_linux: could not fully clear clipboard (a clipboard "
+                     "manager may be restoring it).\n";
+    }
+}
+
 void logScan(const std::string& oldClipboard, const std::string& copyResult) {
     using Clock = std::chrono::system_clock;
     const auto now = Clock::now();
@@ -340,6 +350,7 @@ int main(int argc, char* argv[]) {
 
             if (!settled) {
                 std::cerr << "qrreader_linux: clipboard did not update to scan text; skipping paste.\n";
+                qrreader::clearClipboard();
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 continue;
             }
@@ -348,16 +359,16 @@ int main(int argc, char* argv[]) {
                                               std::chrono::milliseconds(30))) {
                 std::cerr << "qrreader_linux: clipboard no longer matches scan text before paste; "
                              "skipping paste.\n";
+                qrreader::clearClipboard();
                 continue;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             qrreader::simulateCtrlV();
-            // Leave the scanned text (New) on the clipboard: never restore the
-            // previous clipboard ("Old", the Merkur sticky-paste) and do not
-            // write a placeholder.
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            debugLog("clipboard_kept", finalText);
+            // Never restore the previous clipboard ("Old", the Merkur sticky-paste).
+            // Clear to empty once the app has consumed the paste.
+            clearClipboardAfterPaste();
+            debugLog("clipboard_cleared", finalText);
         }
 
         close(fd);

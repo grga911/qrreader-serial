@@ -100,7 +100,7 @@ void testWriteClipboardPassesStdin() {
     std::remove(outFile.c_str());
 }
 
-void testWriteClipboardEmptyOverwritesWithSpace() {
+void testClearClipboardEmptiesSelection() {
     const std::string outFile = tempPath("qrreader-xclip-clear");
     setenv("MOCK_XCLIP_OUT_FILE", outFile.c_str(), 1);
     setenv("MOCK_XCLIP_WRITE_EXIT", "0", 1);
@@ -113,7 +113,7 @@ void testWriteClipboardEmptyOverwritesWithSpace() {
     std::ifstream in(outFile);
     std::ostringstream captured;
     captured << in.rdbuf();
-    expectEq(captured.str(), " ", "clearClipboard overwrites with a single space via xclip");
+    expectEq(captured.str(), "", "clearClipboard sends empty input to xclip (true clear, not a space)");
 
     std::remove(outFile.c_str());
 }
@@ -238,7 +238,7 @@ int main() {
     try {
         testReadClipboardCapturesStdout();
         testWriteClipboardPassesStdin();
-        testWriteClipboardEmptyOverwritesWithSpace();
+        testClearClipboardEmptiesSelection();
         testSimulateCtrlVInvokesXdotool();
         testReadAvailableDataRespectsBufferLimit();
         testReadAvailableDataHandlesEagain();

@@ -1,3 +1,10 @@
+qrreader-cpp (4.1.6-1) stable; urgency=medium
+
+  * Clear clipboard to empty after paste (own empty selection) so scanned data
+    does not linger; still never restore the previous clipboard
+
+ -- QR Reader Maintainer <qrreader@localhost>  Tue, 14 Jul 2026 14:00:00 +0200
+
 qrreader-cpp (4.1.5-1) stable; urgency=medium
 
   * Leave scanned text on clipboard after paste (no placeholder space); still
