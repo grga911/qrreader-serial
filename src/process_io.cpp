@@ -179,7 +179,18 @@ bool writeClipboard(const std::string& text, const ExternalTools& tools) {
 }
 
 bool clearClipboard(const ExternalTools& tools) {
-    return writeClipboard("", tools);
+    // Overwrite (never empty) both selections with a space. Emptying makes
+    // clipboard managers restore the previous entry, which would let the
+    // user's earlier copy be pasted again after a scan.
+    const bool clip = writeClipboard(" ", tools);
+    char* primaryArgv[] = {
+        const_cast<char*>(tools.xclip),
+        const_cast<char*>("-selection"),
+        const_cast<char*>("primary"),
+        nullptr,
+    };
+    const bool primary = spawnWithStdin(primaryArgv, " ");
+    return clip || primary;
 }
 
 bool simulateCtrlV(const ExternalTools& tools) {
