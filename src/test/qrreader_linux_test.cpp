@@ -100,6 +100,24 @@ void testWriteClipboardPassesStdin() {
     std::remove(outFile.c_str());
 }
 
+void testWriteClipboardEmptyOverwritesWithSpace() {
+    const std::string outFile = tempPath("qrreader-xclip-clear");
+    setenv("MOCK_XCLIP_OUT_FILE", outFile.c_str(), 1);
+    setenv("MOCK_XCLIP_WRITE_EXIT", "0", 1);
+
+    const auto mock = mockTools();
+    const auto tools = mock.tools();
+    const bool ok = qrreader::clearClipboard(tools);
+    expectTrue(ok, "clearClipboard returns true for successful mock xclip");
+
+    std::ifstream in(outFile);
+    std::ostringstream captured;
+    captured << in.rdbuf();
+    expectEq(captured.str(), " ", "clearClipboard overwrites with a single space via xclip");
+
+    std::remove(outFile.c_str());
+}
+
 void testSimulateCtrlVInvokesXdotool() {
     const std::string logFile = tempPath("qrreader-xdotool-log");
     setenv("MOCK_XDOTOOL_LOG", logFile.c_str(), 1);
@@ -220,6 +238,7 @@ int main() {
     try {
         testReadClipboardCapturesStdout();
         testWriteClipboardPassesStdin();
+        testWriteClipboardEmptyOverwritesWithSpace();
         testSimulateCtrlVInvokesXdotool();
         testReadAvailableDataRespectsBufferLimit();
         testReadAvailableDataHandlesEagain();

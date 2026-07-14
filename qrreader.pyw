@@ -129,6 +129,24 @@ def _normalize_for_clipboard_compare(s: str) -> str:
     return s.replace("\r\n", "\n").rstrip("\n\r")
 
 
+def looks_like_scan_payload(s: str) -> bool:
+    """
+    True for IPS QR payment slips and typical barcode digits.
+    Restoring these as "old clipboard" causes sticky wrong pastes: once a scan
+    sticks on the clipboard, every later Ctrl+V can emit it again.
+    """
+    t = _normalize_for_clipboard_compare(s or "")
+    if not t:
+        return False
+    if t.startswith("K>PR") or t.startswith("K:PR"):
+        return True
+    if "#N>" in t and ("#I>" in t or "#R>" in t):
+        return True
+    if len(t) >= 8 and t.isdigit():
+        return True
+    return False
+
+
 def wait_clipboard_matches(expected: str, timeout_sec: float = 2.0, poll_sec: float = 0.03) -> bool:
     """
     Poll pyperclip until the clipboard matches expected.
@@ -145,6 +163,103 @@ def wait_clipboard_matches(expected: str, timeout_sec: float = 2.0, poll_sec: fl
             return True
         time.sleep(poll_sec)
     return False
+
+
+def clear_clipboard() -> bool:
+    """
+    Overwrite clipboard so a previous scan cannot stick.
+    On Linux, pyperclip.copy('') / empty xclip stdin often leaves old text
+    unchanged (seen in field logs as Merkur/barcode stuck as Old forever).
+    """
+    if sys.platform.startswith("linux"):
+        xsel = shutil.which("xsel")
+        if xsel:
+            try:
+                subprocess.run(
+                    [xsel, "-bc"],
+                    env=os.environ,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                    check=False,
+                )
+                subprocess.run(
+                    [xsel, "-c"],
+                    env=os.environ,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                    check=False,
+                )
+                return True
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        xclip = shutil.which("xclip")
+        if xclip:
+            try:
+                # A single space overwrites reliably; empty stdin is a known no-op.
+                result = subprocess.run(
+                    [xclip, "-selection", "clipboard"],
+                    input=b" ",
+                    env=os.environ,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                    check=False,
+                )
+                return result.returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+
+    if sys.platform.startswith("win"):
+        try:
+            import ctypes
+
+            user32 = ctypes.windll.user32
+            if user32.OpenClipboard(None):
+                try:
+                    user32.EmptyClipboard()
+                finally:
+                    user32.CloseClipboard()
+                return True
+        except Exception:
+            pass
+
+    try:
+        pyperclip.copy(" ")
+        return True
+    except Exception:
+        return False
+
+
+def restore_or_clear_clipboard(old_clipboard: str) -> None:
+    """
+    Put clipboard back to a safe state. Never re-apply a previous scan/barcode:
+    that is what left Merkur/Potisje stuck as Old and re-pasted on later scans.
+    """
+    if looks_like_scan_payload(old_clipboard) or not (old_clipboard or "").strip():
+        clear_clipboard()
+        return
+    try:
+        pyperclip.copy(old_clipboard)
+    except Exception:
+        clear_clipboard()
+
+
+def finalize_clipboard_after_paste(old_clipboard: str) -> None:
+    """
+    After Ctrl+V, give the target app time to read the clipboard, then clear or
+    restore real user content. Restoring too soon (e.g. 200ms) races the paste
+    consumer and pastes Old (seen when Merkur stuck on the clipboard).
+    """
+    sleep(0.8)
+    restore_or_clear_clipboard(old_clipboard)
+
+
+def log_scan(old_clipboard: str, copy_result: str) -> None:
+    now = time.strftime("%H:%M:%S %d.%m.%Y")
+    print(f"{now} Old '{old_clipboard}'", flush=True)
+    print(f"{now} New '{copy_result}'", flush=True)
 
 
 def _read_port_config_file(path: Path) -> str:
@@ -326,6 +441,7 @@ if __name__ == "__main__":
                         copy_result = remove_control_chars(
                             (result.decode(errors="mixed").strip().translate(replace_dict))
                         )
+                        log_scan(old_clipboard, copy_result)
                         sleep(0.2)
 
                         settled = False
@@ -342,22 +458,26 @@ if __name__ == "__main__":
                                 "skipping paste (avoids pasting stale clipboard).",
                                 flush=True,
                             )
-                            try:
-                                pyperclip.copy(old_clipboard)
-                            except Exception:
-                                pass
+                            restore_or_clear_clipboard(old_clipboard)
+                            continue
+
+                        # Final gate: refuse Ctrl+V if clipboard drifted back to Old.
+                        if not wait_clipboard_matches(copy_result, timeout_sec=0.5):
+                            print(
+                                "qrreader: clipboard no longer matches scan text before paste; "
+                                "skipping paste.",
+                                flush=True,
+                            )
+                            restore_or_clear_clipboard(old_clipboard)
                             continue
 
                         sleep(0.05)
                         if not simulate_ctrl_v():
-                            try:
-                                pyperclip.copy(old_clipboard)
-                            except Exception:
-                                pass
+                            restore_or_clear_clipboard(old_clipboard)
                             continue
-                        sleep(0.2)
-                        pyperclip.copy(old_clipboard)
-                        sleep(0.2)
+                        # Keep New on clipboard until the target app consumes paste;
+                        # never restore a previous QR/barcode (Merkur sticky-paste bug).
+                        finalize_clipboard_after_paste(old_clipboard)
                     except (SerialException, OSError) as e:
                         print(f"serial_disconnected {COM_PORT}: {e}", flush=True)
                         break

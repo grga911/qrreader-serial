@@ -170,7 +170,16 @@ bool writeClipboard(const std::string& text, const ExternalTools& tools) {
         const_cast<char*>("clipboard"),
         nullptr,
     };
+    // Empty stdin often leaves the previous X11 selection unchanged; overwrite
+    // with a single space so sticky scans (e.g. Merkur) cannot survive a "clear".
+    if (text.empty()) {
+        return spawnWithStdin(argv, " ");
+    }
     return spawnWithStdin(argv, text);
+}
+
+bool clearClipboard(const ExternalTools& tools) {
+    return writeClipboard("", tools);
 }
 
 bool simulateCtrlV(const ExternalTools& tools) {
