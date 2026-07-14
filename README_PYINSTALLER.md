@@ -4,6 +4,10 @@ Standalone `qrreader` executable (no system Python at runtime).
 
 ## Prerequisites (build machine)
 
+Scripts install apt dependencies automatically (via `sudo` when needed), including
+`python3`, `python3-venv`, `python3-pip`, and `binutils`. You can also install them
+manually:
+
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip \
@@ -11,7 +15,8 @@ sudo apt install -y python3 python3-venv python3-pip \
 ```
 
 Runtime on target PC (X11 paste): user must be logged into a graphical session (`DISPLAY=:0`).
-Install `xclip` and `xdotool` (included as dependencies in the `.deb` package).
+Install `xclip` and `xdotool` (included as dependencies in the `.deb` package; also
+installed by `scripts/install-pyinstaller.sh`).
 
 ## Build
 

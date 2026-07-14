@@ -5,8 +5,12 @@
 #   GITHUB_REPO=owner/repo ./scripts/install-from-github-release.sh
 #   GITHUB_REPO=owner/repo ./scripts/install-from-github-release.sh v1.0.0
 #
-# Requires: curl, jq (sudo apt install curl jq)
+# Installs curl/jq via apt when missing.
 set -e
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+
+# shellcheck source=./ensure-apt-packages.sh
+. "$SCRIPT_DIR/ensure-apt-packages.sh"
 
 REPO="${GITHUB_REPO:-}"
 TAG="${1:-latest}"
@@ -17,10 +21,7 @@ if [ -z "$REPO" ]; then
     exit 1
 fi
 
-if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
-    echo "Install: sudo apt install curl jq"
-    exit 1
-fi
+ensure_apt_packages curl jq ca-certificates
 
 if [ "$TAG" = "latest" ]; then
     API="https://api.github.com/repos/${REPO}/releases/latest"

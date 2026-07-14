@@ -1,7 +1,11 @@
 #!/bin/sh
 # Install PyInstaller binary and enable user systemd service.
 set -e
-cd "$(dirname "$0")/.."
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+cd "$SCRIPT_DIR/.."
+
+# shellcheck source=./ensure-apt-packages.sh
+. "$SCRIPT_DIR/ensure-apt-packages.sh"
 
 if [ "$(id -u)" -eq 0 ]; then
     echo "Run without sudo; only 'sudo' is used to copy the binary to /usr/local/bin."
@@ -12,6 +16,9 @@ if [ ! -f dist/qrreader ]; then
     echo "Missing dist/qrreader — run: ./scripts/build-pyinstaller.sh"
     exit 1
 fi
+
+# Runtime helpers used for clipboard paste on X11.
+ensure_apt_packages xclip xdotool
 
 echo "==> Installing binary to /usr/bin/qrreader (sudo)"
 sudo install -m 755 dist/qrreader /usr/bin/qrreader
