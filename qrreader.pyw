@@ -147,105 +147,6 @@ def wait_clipboard_matches(expected: str, timeout_sec: float = 2.0, poll_sec: fl
     return False
 
 
-# Harmless placeholder left on the clipboard after a scan. We OVERWRITE with
-# this instead of emptying the clipboard: emptying makes clipboard managers
-# (GNOME, Klipper, CopyQ, Parcellite, ...) restore the previous entry, which
-# reintroduces the user's earlier copy (e.g. "1234") and lets it be pasted
-# again after a scan. Overwriting leaves nothing for them to restore over.
-CLIPBOARD_SENTINEL = " "
-
-
-def clear_clipboard() -> bool:
-    """
-    Neutralize the clipboard so that after a scan neither the just-pasted text
-    nor the user's previous copy can be pasted.
-
-    Do NOT empty the selection: on Linux a clipboard manager will restore the
-    previous entry. Instead overwrite both the CLIPBOARD (Ctrl+V) and PRIMARY
-    (middle-click) X selections with a sentinel, keeping ownership so managers
-    have nothing to restore.
-    """
-    if sys.platform.startswith("linux"):
-        sentinel = CLIPBOARD_SENTINEL.encode("utf-8")
-        xclip = shutil.which("xclip")
-        if xclip:
-            ok = False
-            for selection in ("clipboard", "primary"):
-                try:
-                    result = subprocess.run(
-                        [xclip, "-selection", selection],
-                        input=sentinel,
-                        env=os.environ,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        timeout=5,
-                        check=False,
-                    )
-                    ok = ok or result.returncode == 0
-                except (OSError, subprocess.TimeoutExpired):
-                    pass
-            if ok:
-                return True
-        xsel = shutil.which("xsel")
-        if xsel:
-            ok = False
-            # -i reads stdin into the selection and retains ownership, so the
-            # sentinel (not the previous entry) is served on paste.
-            for flag in ("-ib", "-ip"):
-                try:
-                    subprocess.run(
-                        [xsel, flag],
-                        input=sentinel,
-                        env=os.environ,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        timeout=5,
-                        check=False,
-                    )
-                    ok = True
-                except (OSError, subprocess.TimeoutExpired):
-                    pass
-            if ok:
-                return True
-
-    if sys.platform.startswith("win"):
-        try:
-            import ctypes
-
-            user32 = ctypes.windll.user32
-            if user32.OpenClipboard(None):
-                try:
-                    user32.EmptyClipboard()
-                finally:
-                    user32.CloseClipboard()
-                return True
-        except Exception:
-            pass
-
-    try:
-        pyperclip.copy(CLIPBOARD_SENTINEL)
-        return True
-    except Exception:
-        return False
-
-
-def finalize_clipboard_after_paste() -> None:
-    """
-    After Ctrl+V, give the target app time to read the clipboard, then clear it.
-
-    We deliberately NEVER write the previous clipboard ("Old") back. Restoring
-    Old was the root cause of the Merkur/Potisje sticky-paste bug: the paste
-    consumer reads the clipboard asynchronously, so restoring Old right after
-    Ctrl+V made the app emit the previous scan instead of the new one.
-
-    Clearing (instead of leaving the scan on the clipboard) also prevents an
-    accidental manual Ctrl+V from re-pasting the last slip. Rescanning the same
-    barcode still works: the next scan re-copies and re-verifies its own text.
-    """
-    sleep(0.8)
-    clear_clipboard()
-
-
 def log_scan(old_clipboard: str, copy_result: str) -> None:
     now = time.strftime("%H:%M:%S %d.%m.%Y")
     print(f"{now} Old '{old_clipboard}'", flush=True)
@@ -448,7 +349,6 @@ if __name__ == "__main__":
                                 "skipping paste (avoids pasting stale clipboard).",
                                 flush=True,
                             )
-                            clear_clipboard()
                             continue
 
                         # Final gate: refuse Ctrl+V if clipboard drifted away from New.
@@ -458,16 +358,15 @@ if __name__ == "__main__":
                                 "skipping paste.",
                                 flush=True,
                             )
-                            clear_clipboard()
                             continue
 
                         sleep(0.05)
                         if not simulate_ctrl_v():
-                            clear_clipboard()
                             continue
-                        # Never restore the previous clipboard ("Old"): that caused the
-                        # Merkur sticky-paste. Clear after the app consumes the paste.
-                        finalize_clipboard_after_paste()
+                        # Leave the scanned text (New) on the clipboard. We never
+                        # restore the previous clipboard ("Old") — that caused the
+                        # Merkur sticky-paste — and we do not write a placeholder.
+                        sleep(0.2)
                     except (SerialException, OSError) as e:
                         print(f"serial_disconnected {COM_PORT}: {e}", flush=True)
                         break

@@ -2,7 +2,9 @@
 set -e
 case "$1" in
     configure)
-        echo "Installed /usr/bin/qrreader"
+        mkdir -p /usr/local/bin
+        ln -sf /usr/bin/qrreader /usr/local/bin/qrreader
+        echo "Installed /usr/bin/qrreader (symlinked at /usr/local/bin/qrreader)"
         echo "Per user: systemctl --user enable --now qrreader.service"
         ;;
 esac
