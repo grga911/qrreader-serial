@@ -1,21 +1,20 @@
 #!/usr/bin/make -f
 export DH_VERBOSE = 1
 
+# Pre-built C++ binary only — run ./scripts/build-cpp.sh before packing.
 %:
 	dh $@ --buildsystem=none
 
 override_dh_auto_configure:
-	cmake -S src -B build-linux -DCMAKE_BUILD_TYPE=Release
+
+override_dh_autoreconf:
 
 override_dh_auto_build:
-	cmake --build build-linux --config Release -j$$(nproc)
-	mkdir -p dist
-	cp build-linux/qrreader_linux dist/qrreader
+	@test -f dist/qrreader || (echo "Missing dist/qrreader — run: ./scripts/build-cpp.sh" && exit 1)
+	@file dist/qrreader | grep -qE 'ELF .+ executable' || (echo "dist/qrreader is not a Linux ELF binary" && exit 1)
 	chmod 755 dist/qrreader
 
 override_dh_auto_test:
-
-override_dh_autoreconf:
 
 override_dh_shlibdeps:
 	dh_shlibdeps -- --ignore-missing-info

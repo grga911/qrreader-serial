@@ -61,12 +61,17 @@ jobs:
           cmake --version
           ldd --version | head -1
 
+      - name: Build C++ binary
+        run: |
+          chmod +x scripts/build-cpp.sh
+          ./scripts/build-cpp.sh
+
       - name: Build C++ .deb
         env:
           GIT_TAG: ${{ steps.release.outputs.git_tag }}
         run: |
-          chmod +x scripts/build-deb-cpp.sh
-          sh ./scripts/build-deb-cpp.sh
+          chmod +x scripts/build-deb-cpp.sh debian_cpp/rules
+          ./scripts/build-deb-cpp.sh
 
       - name: Collect C++ release files
         run: |
