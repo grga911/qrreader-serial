@@ -129,24 +129,6 @@ def _normalize_for_clipboard_compare(s: str) -> str:
     return s.replace("\r\n", "\n").rstrip("\n\r")
 
 
-def looks_like_scan_payload(s: str) -> bool:
-    """
-    True for IPS QR payment slips and typical barcode digits.
-    Restoring these as "old clipboard" causes sticky wrong pastes: once a scan
-    sticks on the clipboard, every later Ctrl+V can emit it again.
-    """
-    t = _normalize_for_clipboard_compare(s or "")
-    if not t:
-        return False
-    if t.startswith("K>PR") or t.startswith("K:PR"):
-        return True
-    if "#N>" in t and ("#I>" in t or "#R>" in t):
-        return True
-    if len(t) >= 8 and t.isdigit():
-        return True
-    return False
-
-
 def wait_clipboard_matches(expected: str, timeout_sec: float = 2.0, poll_sec: float = 0.03) -> bool:
     """
     Poll pyperclip until the clipboard matches expected.
@@ -232,28 +214,21 @@ def clear_clipboard() -> bool:
         return False
 
 
-def restore_or_clear_clipboard(old_clipboard: str) -> None:
+def finalize_clipboard_after_paste() -> None:
     """
-    Put clipboard back to a safe state. Never re-apply a previous scan/barcode:
-    that is what left Merkur/Potisje stuck as Old and re-pasted on later scans.
-    """
-    if looks_like_scan_payload(old_clipboard) or not (old_clipboard or "").strip():
-        clear_clipboard()
-        return
-    try:
-        pyperclip.copy(old_clipboard)
-    except Exception:
-        clear_clipboard()
+    After Ctrl+V, give the target app time to read the clipboard, then clear it.
 
+    We deliberately NEVER write the previous clipboard ("Old") back. Restoring
+    Old was the root cause of the Merkur/Potisje sticky-paste bug: the paste
+    consumer reads the clipboard asynchronously, so restoring Old right after
+    Ctrl+V made the app emit the previous scan instead of the new one.
 
-def finalize_clipboard_after_paste(old_clipboard: str) -> None:
-    """
-    After Ctrl+V, give the target app time to read the clipboard, then clear or
-    restore real user content. Restoring too soon (e.g. 200ms) races the paste
-    consumer and pastes Old (seen when Merkur stuck on the clipboard).
+    Clearing (instead of leaving the scan on the clipboard) also prevents an
+    accidental manual Ctrl+V from re-pasting the last slip. Rescanning the same
+    barcode still works: the next scan re-copies and re-verifies its own text.
     """
     sleep(0.8)
-    restore_or_clear_clipboard(old_clipboard)
+    clear_clipboard()
 
 
 def log_scan(old_clipboard: str, copy_result: str) -> None:
@@ -458,26 +433,26 @@ if __name__ == "__main__":
                                 "skipping paste (avoids pasting stale clipboard).",
                                 flush=True,
                             )
-                            restore_or_clear_clipboard(old_clipboard)
+                            clear_clipboard()
                             continue
 
-                        # Final gate: refuse Ctrl+V if clipboard drifted back to Old.
+                        # Final gate: refuse Ctrl+V if clipboard drifted away from New.
                         if not wait_clipboard_matches(copy_result, timeout_sec=0.5):
                             print(
                                 "qrreader: clipboard no longer matches scan text before paste; "
                                 "skipping paste.",
                                 flush=True,
                             )
-                            restore_or_clear_clipboard(old_clipboard)
+                            clear_clipboard()
                             continue
 
                         sleep(0.05)
                         if not simulate_ctrl_v():
-                            restore_or_clear_clipboard(old_clipboard)
+                            clear_clipboard()
                             continue
-                        # Keep New on clipboard until the target app consumes paste;
-                        # never restore a previous QR/barcode (Merkur sticky-paste bug).
-                        finalize_clipboard_after_paste(old_clipboard)
+                        # Never restore the previous clipboard ("Old"): that caused the
+                        # Merkur sticky-paste. Clear after the app consumes the paste.
+                        finalize_clipboard_after_paste()
                     except (SerialException, OSError) as e:
                         print(f"serial_disconnected {COM_PORT}: {e}", flush=True)
                         break

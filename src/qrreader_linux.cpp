@@ -93,48 +93,14 @@ bool waitClipboardMatchesExpected(const std::string& expected, std::chrono::mill
     return false;
 }
 
-bool looksLikeScanPayload(const std::string& s) {
-    const std::string t = normalizeClipboardText(s);
-    if (t.empty()) {
-        return false;
-    }
-    if (t.rfind("K>PR", 0) == 0 || t.rfind("K:PR", 0) == 0) {
-        return true;
-    }
-    if (t.find("#N>") != std::string::npos &&
-        (t.find("#I>") != std::string::npos || t.find("#R>") != std::string::npos)) {
-        return true;
-    }
-    if (t.size() >= 8) {
-        bool allDigits = true;
-        for (char c : t) {
-            if (c < '0' || c > '9') {
-                allDigits = false;
-                break;
-            }
-        }
-        if (allDigits) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void restoreOrClearClipboard(const std::string& oldClipboard) {
-    if (looksLikeScanPayload(oldClipboard) || trimTrailingNewlinesCrLf(oldClipboard).empty()) {
-        qrreader::clearClipboard();
-        return;
-    }
-    if (!qrreader::writeClipboard(oldClipboard)) {
-        qrreader::clearClipboard();
-    }
-}
-
-void finalizeClipboardAfterPaste(const std::string& oldClipboard) {
-    // Target apps often read the clipboard asynchronously after Ctrl+V.
-    // Restoring Old too soon pastes the previous scan (Merkur sticky bug).
+void finalizeClipboardAfterPaste() {
+    // Target apps read the clipboard asynchronously after Ctrl+V. We NEVER write
+    // the previous clipboard ("Old") back: doing so pasted the previous scan
+    // (the Merkur/Potisje sticky-paste bug). Clearing (not leaving the scan)
+    // also blocks an accidental manual Ctrl+V from repeating the last slip.
+    // Rescanning the same barcode still works: the next scan re-copies its text.
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
-    restoreOrClearClipboard(oldClipboard);
+    qrreader::clearClipboard();
 }
 
 void logScan(const std::string& oldClipboard, const std::string& copyResult) {
@@ -384,7 +350,7 @@ int main(int argc, char* argv[]) {
 
             if (!settled) {
                 std::cerr << "qrreader_linux: clipboard did not update to scan text; skipping paste.\n";
-                restoreOrClearClipboard(oldClipboard);
+                qrreader::clearClipboard();
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 continue;
             }
@@ -393,14 +359,14 @@ int main(int argc, char* argv[]) {
                                               std::chrono::milliseconds(30))) {
                 std::cerr << "qrreader_linux: clipboard no longer matches scan text before paste; "
                              "skipping paste.\n";
-                restoreOrClearClipboard(oldClipboard);
+                qrreader::clearClipboard();
                 continue;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             qrreader::simulateCtrlV();
-            finalizeClipboardAfterPaste(oldClipboard);
-            debugLog("clipboard_finalized", oldClipboard);
+            finalizeClipboardAfterPaste();
+            debugLog("clipboard_cleared", oldClipboard);
         }
 
         close(fd);

@@ -70,7 +70,7 @@ Logs are printed to stderr in this form:
 ```text
 [2026-05-20 12:00:00.123] clipboard_before="..."
 [2026-05-20 12:00:00.456] pasted_text="..."
-[2026-05-20 12:00:00.789] clipboard_finalized="..."
+[2026-05-20 12:00:00.789] clipboard_cleared="..."
 ```
 
 ## Behavior parity with Python version
@@ -83,7 +83,7 @@ Logs are printed to stderr in this form:
 - Applies Serbian Cyrillic to Latin transliteration plus:
   - `:` -> `>`
   - `|` -> `#`
-- Stores old clipboard, writes decoded text, sends `Ctrl+V`, then clears (or restores only non-scan user clipboard content)
+- Writes decoded text, sends `Ctrl+V`, then clears the clipboard (never restores the previous clipboard)
 
 ## Stale serial data (wrong paste)
 
@@ -108,7 +108,8 @@ Field logs showed this pattern:
 
 Mitigations now:
 
-- Never restore a previous IPS QR / numeric barcode as “old clipboard”; **clear** instead (overwrite with a space via `xclip`, or `xsel -bc` when available).
-- After a successful paste, wait ~800ms before touching the clipboard again so the banking UI can consume `New`.
+- **Never write the previous clipboard (`Old`) back.** This removes the sticky-paste by construction: a previous slip can no longer be on the clipboard when the app reads the paste, regardless of timing.
+- After a successful paste, wait ~800ms (so the banking UI can consume `New`), then **clear** the clipboard (overwrite with a space via `xclip`, or `xsel -bc` when available). Clearing — instead of leaving `New` — also prevents an accidental manual `Ctrl+V` from repeating the last slip.
 - Re-check that the clipboard still matches `New` immediately before `Ctrl+V`.
+- **Rescanning the same barcode still works**: each scan re-copies and re-verifies its own text, so there is no duplicate-scan suppression.
 - Log `Old` / `New` with timestamps for journal diagnosis.
