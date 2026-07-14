@@ -93,6 +93,29 @@ bool waitClipboardMatchesExpected(const std::string& expected, std::chrono::mill
     return false;
 }
 
+void finalizeClipboardAfterPaste() {
+    // Target apps read the clipboard asynchronously after Ctrl+V. We NEVER write
+    // the previous clipboard ("Old") back: doing so pasted the previous scan
+    // (the Merkur/Potisje sticky-paste bug). Clearing (not leaving the scan)
+    // also blocks an accidental manual Ctrl+V from repeating the last slip.
+    // Rescanning the same barcode still works: the next scan re-copies its text.
+    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    qrreader::clearClipboard();
+}
+
+void logScan(const std::string& oldClipboard, const std::string& copyResult) {
+    using Clock = std::chrono::system_clock;
+    const auto now = Clock::now();
+    const std::time_t nowTime = Clock::to_time_t(now);
+    std::tm tmNow{};
+    localtime_r(&nowTime, &tmNow);
+    std::ostringstream oss;
+    oss << std::put_time(&tmNow, "%H:%M:%S %d.%m.%Y");
+    const std::string stamp = oss.str();
+    std::cerr << stamp << " Old '" << oldClipboard << "'\n";
+    std::cerr << stamp << " New '" << copyResult << "'\n";
+}
+
 bool isUtf8Continuation(unsigned char c) {
     return (c & 0xC0) == 0x80;
 }
@@ -305,6 +328,7 @@ int main(int argc, char* argv[]) {
             std::string normalized = replaceNewlinesWithHash(raw);
             std::string decoded = decodeMixedUtf8Cp1252(normalized);
             std::string finalText = transliterateAndFilter(decoded);
+            logScan(oldClipboard, finalText);
             debugLog("clipboard_before", oldClipboard);
             debugLog("pasted_text", finalText);
 
@@ -326,17 +350,23 @@ int main(int argc, char* argv[]) {
 
             if (!settled) {
                 std::cerr << "qrreader_linux: clipboard did not update to scan text; skipping paste.\n";
-                qrreader::writeClipboard(oldClipboard);
+                qrreader::clearClipboard();
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                continue;
+            }
+
+            if (!waitClipboardMatchesExpected(finalText, std::chrono::milliseconds(500),
+                                              std::chrono::milliseconds(30))) {
+                std::cerr << "qrreader_linux: clipboard no longer matches scan text before paste; "
+                             "skipping paste.\n";
+                qrreader::clearClipboard();
                 continue;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             qrreader::simulateCtrlV();
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            qrreader::writeClipboard(oldClipboard);
-            debugLog("clipboard_restored", oldClipboard);
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            finalizeClipboardAfterPaste();
+            debugLog("clipboard_cleared", oldClipboard);
         }
 
         close(fd);

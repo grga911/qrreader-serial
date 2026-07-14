@@ -70,7 +70,7 @@ Logs are printed to stderr in this form:
 ```text
 [2026-05-20 12:00:00.123] clipboard_before="..."
 [2026-05-20 12:00:00.456] pasted_text="..."
-[2026-05-20 12:00:00.789] clipboard_restored="..."
+[2026-05-20 12:00:00.789] clipboard_cleared="..."
 ```
 
 ## Behavior parity with Python version
@@ -83,7 +83,7 @@ Logs are printed to stderr in this form:
 - Applies Serbian Cyrillic to Latin transliteration plus:
   - `:` -> `>`
   - `|` -> `#`
-- Stores old clipboard, writes decoded text, sends `Ctrl+V`, restores old clipboard
+- Writes decoded text, sends `Ctrl+V`, then clears the clipboard (never restores the previous clipboard)
 
 ## Stale serial data (wrong paste)
 
@@ -96,6 +96,20 @@ If the pasted text did not match the last scan, common causes were:
 
 Some desktops apply clipboard updates asynchronously. If `Ctrl+V` runs before the new text is visible to the app receiving the paste, the **previous** clipboard content is pasted.
 
-`qrreader.pyw` and `qrreader_linux.cpp` now **poll the clipboard until a read-back matches the scan text** (with a few copy retries and a timeout) before sending `Ctrl+V`. If it never matches, they **skip paste** and restore the old clipboard instead of pasting wrong data.
+`qrreader.pyw` and `qrreader_linux.cpp` now **poll the clipboard until a read-back matches the scan text** (with a few copy retries and a timeout) before sending `Ctrl+V`. If it never matches, they **skip paste** and clear/restore safely instead of pasting wrong data.
 
-If problems remain (very fast double scans, no line terminator), consider reading until a delimiter or an inter-scan idle gap; that would be a separate enhancement.
+### Sticky previous scan (Merkur / barcode loop)
+
+Field logs showed this pattern:
+
+1. A scan (e.g. Merkur IPS QR) is pasted correctly while `Old` was empty.
+2. Restoring an empty clipboard with `pyperclip.copy('')` / empty `xclip` stdin **does not clear** on many Linux desktops, so that scan remains as clipboard content.
+3. Every later scan then has that text as `Old`. Restoring `Old` ~200ms after `Ctrl+V` races the target app, so **Merkur (or a barcode) is pasted instead of the new scan**, and `Old` stays stuck for hours.
+
+Mitigations now:
+
+- **Never write the previous clipboard (`Old`) back.** This removes the sticky-paste by construction: a previous slip can no longer be on the clipboard when the app reads the paste, regardless of timing.
+- After a successful paste, wait ~800ms (so the banking UI can consume `New`), then **clear** the clipboard (overwrite with a space via `xclip`, or `xsel -bc` when available). Clearing — instead of leaving `New` — also prevents an accidental manual `Ctrl+V` from repeating the last slip.
+- Re-check that the clipboard still matches `New` immediately before `Ctrl+V`.
+- **Rescanning the same barcode still works**: each scan re-copies and re-verifies its own text, so there is no duplicate-scan suppression.
+- Log `Old` / `New` with timestamps for journal diagnosis.

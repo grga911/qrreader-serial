@@ -19,6 +19,7 @@ bool spawnSimple(char* const argv[]);
 
 std::string readClipboard(const ExternalTools& tools = ExternalTools{});
 bool writeClipboard(const std::string& text, const ExternalTools& tools = ExternalTools{});
+bool clearClipboard(const ExternalTools& tools = ExternalTools{});
 bool simulateCtrlV(const ExternalTools& tools = ExternalTools{});
 
 std::string readAvailableData(int fd);
