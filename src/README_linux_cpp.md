@@ -109,7 +109,8 @@ Field logs showed this pattern:
 Mitigations now:
 
 - **Never write the previous clipboard (`Old`) back.** This removes the sticky-paste by construction: a previous slip can no longer be on the clipboard when the app reads the paste, regardless of timing.
-- After a successful paste, wait ~800ms (so the banking UI can consume `New`), then **clear** the clipboard (overwrite with a space via `xclip`, or `xsel -bc` when available). Clearing — instead of leaving `New` — also prevents an accidental manual `Ctrl+V` from repeating the last slip.
+- After a successful paste, wait ~800ms (so the banking UI can consume `New`), then **overwrite** the clipboard (and PRIMARY selection) with a space via `xclip`/`xsel -i`. This — instead of leaving `New` — also prevents an accidental manual `Ctrl+V` from repeating the last slip.
+  - We **overwrite, never empty**: emptying the selection makes a clipboard manager (GNOME, Klipper, CopyQ, Parcellite, …) restore the previous entry, which would let the user's earlier copy (e.g. `1234`) be pasted again after a scan.
 - Re-check that the clipboard still matches `New` immediately before `Ctrl+V`.
 - **Rescanning the same barcode still works**: each scan re-copies and re-verifies its own text, so there is no duplicate-scan suppression.
 - Log `Old` / `New` with timestamps for journal diagnosis.

@@ -147,51 +147,66 @@ def wait_clipboard_matches(expected: str, timeout_sec: float = 2.0, poll_sec: fl
     return False
 
 
+# Harmless placeholder left on the clipboard after a scan. We OVERWRITE with
+# this instead of emptying the clipboard: emptying makes clipboard managers
+# (GNOME, Klipper, CopyQ, Parcellite, ...) restore the previous entry, which
+# reintroduces the user's earlier copy (e.g. "1234") and lets it be pasted
+# again after a scan. Overwriting leaves nothing for them to restore over.
+CLIPBOARD_SENTINEL = " "
+
+
 def clear_clipboard() -> bool:
     """
-    Overwrite clipboard so a previous scan cannot stick.
-    On Linux, pyperclip.copy('') / empty xclip stdin often leaves old text
-    unchanged (seen in field logs as Merkur/barcode stuck as Old forever).
+    Neutralize the clipboard so that after a scan neither the just-pasted text
+    nor the user's previous copy can be pasted.
+
+    Do NOT empty the selection: on Linux a clipboard manager will restore the
+    previous entry. Instead overwrite both the CLIPBOARD (Ctrl+V) and PRIMARY
+    (middle-click) X selections with a sentinel, keeping ownership so managers
+    have nothing to restore.
     """
     if sys.platform.startswith("linux"):
-        xsel = shutil.which("xsel")
-        if xsel:
-            try:
-                subprocess.run(
-                    [xsel, "-bc"],
-                    env=os.environ,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=5,
-                    check=False,
-                )
-                subprocess.run(
-                    [xsel, "-c"],
-                    env=os.environ,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=5,
-                    check=False,
-                )
-                return True
-            except (OSError, subprocess.TimeoutExpired):
-                pass
+        sentinel = CLIPBOARD_SENTINEL.encode("utf-8")
         xclip = shutil.which("xclip")
         if xclip:
-            try:
-                # A single space overwrites reliably; empty stdin is a known no-op.
-                result = subprocess.run(
-                    [xclip, "-selection", "clipboard"],
-                    input=b" ",
-                    env=os.environ,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=5,
-                    check=False,
-                )
-                return result.returncode == 0
-            except (OSError, subprocess.TimeoutExpired):
-                pass
+            ok = False
+            for selection in ("clipboard", "primary"):
+                try:
+                    result = subprocess.run(
+                        [xclip, "-selection", selection],
+                        input=sentinel,
+                        env=os.environ,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=5,
+                        check=False,
+                    )
+                    ok = ok or result.returncode == 0
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+            if ok:
+                return True
+        xsel = shutil.which("xsel")
+        if xsel:
+            ok = False
+            # -i reads stdin into the selection and retains ownership, so the
+            # sentinel (not the previous entry) is served on paste.
+            for flag in ("-ib", "-ip"):
+                try:
+                    subprocess.run(
+                        [xsel, flag],
+                        input=sentinel,
+                        env=os.environ,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=5,
+                        check=False,
+                    )
+                    ok = True
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+            if ok:
+                return True
 
     if sys.platform.startswith("win"):
         try:
@@ -208,7 +223,7 @@ def clear_clipboard() -> bool:
             pass
 
     try:
-        pyperclip.copy(" ")
+        pyperclip.copy(CLIPBOARD_SENTINEL)
         return True
     except Exception:
         return False
