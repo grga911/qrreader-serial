@@ -1,0 +1,82 @@
+name: Bug report
+description: Report unexpected behavior or a crash
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. For security issues, use [SECURITY.md](https://github.com/grga911/qrreader-serial/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to trigger the problem
+      placeholder: |
+        1. Install qrreader via …
+        2. Scan …
+        3. Observe …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Install / run method
+      options:
+        - GitHub Release .deb
+        - Standalone binary
+        - Python source (qrreader.pyw)
+        - C++ build
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Contents of VERSION, package version, or git tag/commit
+      placeholder: "4.1.6"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "Ubuntu 22.04 amd64"
+    validations:
+      required: true
+  - type: input
+    id: serial
+    attributes:
+      label: Serial device (optional)
+      placeholder: "/dev/ttyACM0"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output from `journalctl --user -u qrreader.service` or stderr
+      render: shell
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Scanner model, desktop environment, clipboard manager, etc.
