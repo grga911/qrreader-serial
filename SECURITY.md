@@ -17,8 +17,7 @@ Please **do not** open a public GitHub issue for security problems.
 Prefer one of these private channels:
 
 1. **GitHub Security Advisories** (preferred):  
-   <https://github.com/grga911/qrreader-serial/security/advisories/new>
-2. **Email**: [grgicnemanja@gmail.com](mailto:grgicnemanja@gmail.com)
+   <https://github.com/grga911/qrreader-serial/security/advisories/new
 
 Include as much detail as you can:
 
