@@ -39,12 +39,21 @@ Write-Host "==> Installing requirements"
 & $VenvPip install -r requirements-build.txt
 
 Write-Host "==> Removing non-required packages (non-requirements.txt)"
-Get-Content "non-requirements.txt" | ForEach-Object {
-    $pkg = $_.Trim()
-    if (-not $pkg -or $pkg.StartsWith("#")) {
-        return
+# pip writes "Skipping X as it is not installed" to stderr; with
+# $ErrorActionPreference=Stop that becomes a terminating NativeCommandError.
+# Match Linux build: uninstall if present, otherwise ignore (|| true).
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    Get-Content "non-requirements.txt" | ForEach-Object {
+        $pkg = $_.Trim()
+        if (-not $pkg -or $pkg.StartsWith("#")) {
+            return
+        }
+        & $VenvPython -m pip uninstall -y --disable-pip-version-check $pkg *>$null
     }
-    & $VenvPip uninstall -y $pkg 2>$null | Out-Null
+} finally {
+    $ErrorActionPreference = $prevEap
 }
 
 Write-Host "==> PyInstaller build (qrreader.spec)"
