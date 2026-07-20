@@ -41,19 +41,27 @@ journalctl --user -u qrreader.service -f
 
 ## Run from source (Python)
 
-Dependencies: Python 3, `pyserial`, `pyperclip`, plus Linux tools `xclip` / `xdotool` (and ideally `xsel`).
+Dependencies: Python 3, `pyserial`, `pyperclip`. On Linux also install `xclip` / `xdotool` (and ideally `xsel`).
 
 ```bash
+# Linux
 sudo apt install xclip xdotool xsel
 python3 -m pip install -r requirements.txt
 python3 qrreader.pyw /dev/ttyACM0
+```
+
+```powershell
+# Windows (PowerShell)
+python -m pip install -r requirements.txt
+pythonw qrreader.pyw COM21
 ```
 
 ## Build
 
 | Goal | Docs / command |
 |------|----------------|
-| PyInstaller binary | [`README_PYINSTALLER.md`](README_PYINSTALLER.md) · `./scripts/build-pyinstaller.sh` |
+| PyInstaller binary (Linux) | [`README_PYINSTALLER.md`](README_PYINSTALLER.md) · `./scripts/build-pyinstaller.sh` |
+| PyInstaller EXE (Windows) | [`README_PYINSTALLER.md`](README_PYINSTALLER.md) · `.\scripts\build-pyinstaller.ps1` |
 | `.deb` from PyInstaller binary | [`README_PACKAGING.md`](README_PACKAGING.md) · `./scripts/build-deb.sh` |
 | Linux C++ rewrite | [`src/README_linux_cpp.md`](src/README_linux_cpp.md) · `./scripts/build-cpp.sh` |
 | GitHub Releases | [`README_GITHUB_RELEASES.md`](README_GITHUB_RELEASES.md) |

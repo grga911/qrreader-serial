@@ -109,13 +109,49 @@ def mixed_decoder(unicode_error):
 codecs.register_error("mixed", mixed_decoder)
 
 
+def _app_dir() -> Path:
+    """Directory that holds the script or frozen EXE."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def _windows_config_dirs() -> list:
+    """Roaming + Local AppData config folders used on Windows."""
+    dirs = []
+    appdata = os.environ.get("APPDATA")
+    local = os.environ.get("LOCALAPPDATA")
+    if appdata:
+        dirs.append(Path(appdata) / "qrreader")
+    if local:
+        dirs.append(Path(local) / "qrreader")
+    if not dirs:
+        home = Path.home()
+        dirs.extend(
+            [
+                home / "AppData" / "Roaming" / "qrreader",
+                home / "AppData" / "Local" / "qrreader",
+            ]
+        )
+    return dirs
+
+
 def _load_version() -> str:
-    script_dir = Path(__file__).resolve().parent
-    for candidate in (
-        script_dir / "VERSION",
-        Path("/usr/share/qrreader/VERSION"),
-        Path("/usr/lib/qrreader/VERSION"),
-    ):
+    candidates = []
+    # PyInstaller onefile extracts datas to sys._MEIPASS
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(Path(meipass) / "VERSION")
+    candidates.extend(
+        [
+            _app_dir() / "VERSION",
+            Path("/usr/share/qrreader/VERSION"),
+            Path("/usr/lib/qrreader/VERSION"),
+        ]
+    )
+    if sys.platform.startswith("win"):
+        candidates.extend(path / "VERSION" for path in _windows_config_dirs())
+    for candidate in candidates:
         if candidate.is_file():
             return candidate.read_text(encoding="utf-8").strip()
     return "0.0.0"
@@ -262,13 +298,30 @@ def _read_port_config_file(path: Path) -> str:
     return line[0].strip()
 
 
+def _config_port_paths() -> list:
+    paths = [
+        Path("/etc/qrreader/port"),
+        Path.home() / ".config" / "qrreader" / "port",
+    ]
+    if sys.platform.startswith("win"):
+        paths = [d / "port" for d in _windows_config_dirs()] + paths
+    return paths
+
+
+def _config_update_url_paths() -> list:
+    paths = [
+        Path("/etc/qrreader/update.url"),
+        Path.home() / ".config" / "qrreader" / "update.url",
+    ]
+    if sys.platform.startswith("win"):
+        paths = [d / "update.url" for d in _windows_config_dirs()] + paths
+    return paths
+
+
 def resolve_com_port() -> str:
     OS = platform.system()
     default = "COM21" if "win" in OS.lower() else "/dev/ttyACM0"
-    for path in (
-        Path("/etc/qrreader/port"),
-        Path.home() / ".config" / "qrreader" / "port",
-    ):
+    for path in _config_port_paths():
         configured = _read_port_config_file(path)
         if len(configured) >= 3:
             return configured
@@ -276,10 +329,7 @@ def resolve_com_port() -> str:
 
 
 def get_update_check_url() -> str:
-    for path in (
-        Path("/etc/qrreader/update.url"),
-        Path.home() / ".config" / "qrreader" / "update.url",
-    ):
+    for path in _config_update_url_paths():
         if path.is_file():
             url = path.read_text(encoding="utf-8").strip().splitlines()
             if url and url[0].strip():
@@ -306,12 +356,19 @@ def version_tuple(version: str):
 def check_for_updates() -> int:
     url = get_update_check_url()
     if not url:
-        print(
-            "No update URL configured.\n"
-            "Set /etc/qrreader/update.url (one line: URL to a plain-text VERSION file).\n"
-            "When installed from .deb: sudo apt update && sudo apt upgrade qrreader",
-            flush=True,
-        )
+        if sys.platform.startswith("win"):
+            print(
+                "No update URL configured.\n"
+                "Set %APPDATA%\\qrreader\\update.url (one line: URL to a plain-text VERSION file).",
+                flush=True,
+            )
+        else:
+            print(
+                "No update URL configured.\n"
+                "Set /etc/qrreader/update.url (one line: URL to a plain-text VERSION file).\n"
+                "When installed from .deb: sudo apt update && sudo apt upgrade qrreader",
+                flush=True,
+            )
         return 2
 
     try:
@@ -324,7 +381,11 @@ def check_for_updates() -> int:
     print(f"Latest:    {latest}", flush=True)
     if version_tuple(latest) > version_tuple(__version__):
         print("Update available.", flush=True)
-        print("If installed via apt: sudo apt update && sudo apt upgrade qrreader", flush=True)
+        if not sys.platform.startswith("win"):
+            print(
+                "If installed via apt: sudo apt update && sudo apt upgrade qrreader",
+                flush=True,
+            )
         return 10
     print("You are up to date.", flush=True)
     return 0
@@ -387,9 +448,10 @@ Examples:
   qrreader COM21
   qrreader /dev/ttyACM0
 
-Config (Linux package):
-  /etc/qrreader/port
-  /etc/qrreader/update.url"""
+Config:
+  Linux:  /etc/qrreader/port  or  ~/.config/qrreader/port
+  Windows: %APPDATA%\\qrreader\\port  (one line, e.g. COM21)
+  Update URL (optional): same folder, file update.url"""
     )
 
 

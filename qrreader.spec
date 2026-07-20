@@ -5,10 +5,17 @@ import sys
 block_cipher = None
 
 # Linux systemd: console=True so logs go to journalctl
+# Windows: console=False (windowless, like running the .pyw)
 _is_linux = sys.platform.startswith('linux')
+_is_windows = sys.platform.startswith('win')
 console = _is_linux
 
 _icon = ['readerCOM21.ico'] if os.path.isfile('readerCOM21.ico') else None
+
+# Bundle VERSION next to the frozen binary so --version works.
+_datas = []
+if os.path.isfile('VERSION'):
+    _datas.append(('VERSION', '.'))
 
 # Keep EXE small: drop unused stdlib and build-time packages
 _excludes = [
@@ -59,7 +66,7 @@ a = Analysis(
     ['qrreader.pyw'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=_datas,
     hiddenimports=_hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -82,8 +89,9 @@ exe = EXE(
     name='qrreader',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,
-    upx=not _is_linux,
+    # strip is a Unix toolchain feature; skip on Windows
+    strip=_is_linux,
+    upx=_is_windows,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=console,
